@@ -9,25 +9,29 @@ import { fetchInventory, InventoryItem as ApiInventoryItem } from '../services/a
 import { API_BASE_URL } from '../constants/config';
 import { fromISO } from '../lib/date';
 
-const INVENTORY_CATEGORIES = ['Food', 'Toiletries', 'Cleaning supplies', 'Electronics', 'Others'] as const;
+const INVENTORY_CATEGORIES = ['Food', 'Beauty & Grooming', 'Cleaning supplies', 'Electronics', 'Others'] as const;
 type InventoryCategory = (typeof INVENTORY_CATEGORIES)[number];
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 type Filter = 'All' | 'To sort' | InventoryCategory;
+type StatusFilter = 'Active' | 'For Disposal' | 'Disposed';
 
 const FILTERS: Filter[] = ['All', 'To sort', ...INVENTORY_CATEGORIES];
 
 const catStyle: Record<InventoryCategory, { color: string; bg: string; icon: IconName }> = {
   Food: { color: colors.teal, bg: 'rgba(22,186,197,0.16)', icon: 'nutrition-outline' },
-  Toiletries: { color: colors.maya, bg: 'rgba(95,191,249,0.16)', icon: 'water-outline' },
+  'Beauty & Grooming': { color: colors.maya, bg: 'rgba(95,191,249,0.16)', icon: 'water-outline' },
   'Cleaning supplies': { color: colors.sapphireText, bg: 'rgba(88,99,248,0.2)', icon: 'sparkles-outline' },
   Electronics: { color: colors.text, bg: 'rgba(239,233,244,0.12)', icon: 'battery-charging-outline' },
-  Others: { color: colors.muted, bg: 'rgba(154,168,166,0.14)', icon: 'cube-outline' },
+  Others: { color: colors.muted, bg: 'rgba(154,168,166,0.14)', icon: 'grid-outline' },
 };
 
+// Helper for GMT+8 date formatting
 const shortDate = (iso: string) => {
   if (!iso) return '';
-  const dateStr = iso.split('T')[0];
+  const date = new Date(iso);
+  const gmt8Date = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  const dateStr = gmt8Date.toISOString().split('T')[0];
   return fromISO(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
@@ -52,7 +56,7 @@ function ItemRow({
   onStep: (delta: number) => void;
 }) {
   const c = item.category && item.category in catStyle ? catStyle[item.category as InventoryCategory] : null;
-  const status = item.status === 'out' ? 'Out' : item.status === 'low' ? 'Low' : null;
+  const status = item.status === 'out' ? 'Out' : item.status === 'low' ? 'Low' : item.status === 'For Disposal' ? 'Disposal' : null;
 
   return (
     <Pressable onPress={onPress} style={[s.row, !first && s.rowDivider]}>
@@ -62,13 +66,13 @@ function ItemRow({
       <View style={{ flex: 1 }}>
         <Text style={s.body}>{item.name}</Text>
         <Text style={s.small}>
-          Updated {shortDate(item.updatedAt)}
+          {item.expirationDate ? `Exp: ${shortDate(item.expirationDate)}` : `Updated ${shortDate(item.updatedAt)}`}
           {item.category === null ? ' · tap to sort' : ''}
         </Text>
       </View>
       {status && (
-        <View style={s.status}>
-          <Text style={s.statusText}>{status}</Text>
+        <View style={[s.status, item.status === 'For Disposal' && { borderColor: colors.teal }]}>
+          <Text style={[s.statusText, item.status === 'For Disposal' && { color: colors.teal }]}>{status}</Text>
         </View>
       )}
       <View style={s.stepper}>
@@ -88,6 +92,8 @@ export default function Inventory() {
   const [inventory, setInventory] = useState<ApiInventoryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [filter, setFilter] = useState<Filter>('All');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('Active');
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [modal, setModal] = useState<{ open: boolean; item?: ApiInventoryItem }>({ open: false });
 
@@ -102,16 +108,20 @@ export default function Inventory() {
     loadInventory();
   }, []);
 
-  const toSort = inventory.filter((i) => i.category === null).length;
-  const low = inventory.filter((i) => i.status === 'low' || i.status === 'out').length;
+  const toSort = inventory.filter((i) => i.category === null && i.status !== 'Disposed').length;
+  const low = inventory.filter((i) => (i.status === 'low' || i.status === 'out') && i.status !== 'Disposed').length;
 
-  // Filter, then group: "to sort" first, then each category
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
     const visible = inventory.filter((i) => {
+      if (statusFilter === 'Active' && (i.status === 'Disposed' || i.status === 'For Disposal')) return false;
+      if (statusFilter === 'For Disposal' && i.status !== 'For Disposal') return false;
+      if (statusFilter === 'Disposed' && i.status !== 'Disposed') return false;
+
       const inFilter = filter === 'All' || (filter === 'To sort' ? i.category === null : i.category === filter);
       return inFilter && (!q || i.name.toLowerCase().includes(q));
     });
+
     const order: (InventoryCategory | null)[] = [null, ...INVENTORY_CATEGORIES];
     return order
       .map((key) => ({
@@ -119,7 +129,7 @@ export default function Inventory() {
         items: visible.filter((i) => i.category === key).sort((a, b) => a.name.localeCompare(b.name)),
       }))
       .filter((g) => g.items.length > 0);
-  }, [inventory, filter, query]);
+  }, [inventory, filter, statusFilter, query]);
 
   const closeModal = () => setModal((m) => ({ ...m, open: false }));
 
@@ -131,7 +141,7 @@ export default function Inventory() {
         body: JSON.stringify({ quantity: newQty }),
       });
       if (res.ok) {
-        loadInventory(); // Refresh live items
+        loadInventory();
       }
     } catch (err) {
       console.error('Failed to update quantity:', err);
@@ -139,19 +149,24 @@ export default function Inventory() {
   };
 
   const handleSaveModal = async (values: ItemValues) => {
-    if (modal.item) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/inventory/${modal.item.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(values),
-        });
-        if (res.ok) {
-          loadInventory();
-        }
-      } catch (err) {
-        console.error('Failed to update item metadata:', err);
+    try {
+      const url = modal.item?.id 
+        ? `${API_BASE_URL}/inventory/${modal.item.id}` 
+        : `${API_BASE_URL}/inventory`;
+      
+      const method = modal.item?.id ? 'PATCH' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      });
+
+      if (res.ok) {
+        loadInventory();
       }
+    } catch (err) {
+      console.error('Failed to save item:', err);
     }
     closeModal();
   };
@@ -159,10 +174,16 @@ export default function Inventory() {
   return (
     <View style={s.screen}>
       <ScrollView contentContainerStyle={s.content}>
-        <Text style={s.title}>Inventory (Live DB)</Text>
+        <View style={s.headerRow}>
+          <Text style={s.title}>Inventory</Text>
+          <Pressable style={s.addBtn} onPress={() => setModal({ open: true, item: undefined })}>
+            <Ionicons name="add" size={16} color={colors.bg} />
+            <Text style={s.addBtnText}>Add item</Text>
+          </Pressable>
+        </View>
 
         <View style={[s.card, s.summary]}>
-          <Stat label="Items" value={inventory.length} />
+          <Stat label="Items" value={inventory.filter(i => i.status !== 'Disposed').length} />
           <View style={s.vr} />
           <Stat label="Running low" value={low} color={low > 0 ? colors.sapphireText : undefined} />
           <View style={s.vr} />
@@ -170,19 +191,51 @@ export default function Inventory() {
             label="To sort"
             value={toSort}
             color={toSort > 0 ? colors.teal : undefined}
-            onPress={() => setFilter('To sort')}
+            onPress={() => { setFilter('To sort'); setStatusFilter('Active'); }}
           />
         </View>
 
-        <View style={s.search}>
-          <Ionicons name="search-outline" size={16} color={colors.muted} />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search inventory"
-            placeholderTextColor={colors.muted}
-            style={s.searchInput}
-          />
+        <View style={{ position: 'relative', zIndex: 100, elevation: 10 }}>
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+            <View style={[s.search, { flex: 1 }]}>
+              <Ionicons name="search-outline" size={16} color={colors.muted} />
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Search inventory"
+                placeholderTextColor={colors.muted}
+                style={s.searchInput}
+              />
+            </View>
+
+            <View style={{ position: 'relative' }}>
+              <Pressable 
+                style={s.statusDropdownBtn} 
+                onPress={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
+              >
+                <Ionicons name="filter-outline" size={14} color={colors.teal} />
+                <Text style={s.statusDropdownBtnText}>{statusFilter}</Text>
+                <Ionicons name="chevron-down" size={12} color={colors.muted} />
+              </Pressable>
+
+              {isStatusDropdownOpen && (
+                <View style={s.dropdown}>
+                  {(['Active', 'For Disposal', 'Disposed'] as StatusFilter[]).map((st) => (
+                    <Pressable
+                      key={st}
+                      style={[s.dropdownItem, statusFilter === st && { backgroundColor: 'rgba(22,186,197,0.1)' }]}
+                      onPress={() => {
+                        setStatusFilter(st);
+                        setIsStatusDropdownOpen(false);
+                      }}
+                    >
+                      <Text style={[s.dropdownText, statusFilter === st && { color: colors.teal }]}>{st}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
@@ -202,10 +255,8 @@ export default function Inventory() {
           </View>
         ) : groups.length === 0 ? (
           <View style={[s.card, { alignItems: 'center', paddingVertical: 28 }]}>
-            <Text style={s.body}>{inventory.length === 0 ? 'Nothing in your inventory yet' : 'No items here'}</Text>
-            <Text style={s.small}>
-              {inventory.length === 0 ? 'Groceries logged under Expenses show up here.' : 'Try a different filter.'}
-            </Text>
+            <Text style={s.body}>No items found</Text>
+            <Text style={s.small}>Try changing your category or status filter.</Text>
           </View>
         ) : (
           groups.map(({ key, items }) => (
@@ -238,7 +289,18 @@ export default function Inventory() {
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: 22, gap: 12, width: '100%', maxWidth: 760, alignSelf: 'center' },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { color: colors.text, fontFamily: fonts.medium, fontSize: 22 },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.teal,
+    borderRadius: 99,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  addBtnText: { color: colors.bg, fontFamily: fonts.medium, fontSize: 13 },
   card: { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 14 },
   summary: { flexDirection: 'row', alignItems: 'center' },
   stat: { flex: 1, alignItems: 'center' },
@@ -255,8 +317,36 @@ const s = StyleSheet.create({
     borderRadius: 99,
     paddingHorizontal: 14,
     height: 40,
+    backgroundColor: colors.card,
   },
   searchInput: { flex: 1, color: colors.text, fontFamily: fonts.regular, fontSize: 14 },
+  statusDropdownBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 40,
+    paddingHorizontal: 14,
+    borderRadius: 99,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  statusDropdownBtnText: { color: colors.text, fontFamily: fonts.medium, fontSize: 13 },
+  dropdown: {
+    position: 'absolute',
+    top: 46,
+    right: 0,
+    width: 140,
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 10,
+    overflow: 'hidden',
+    zIndex: 999,
+    elevation: 10,
+  },
+  dropdownItem: { paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  dropdownText: { color: colors.text, fontSize: 13, fontFamily: fonts.regular },
   groupHeader: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, marginBottom: 6, paddingHorizontal: 2 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10 },
   rowDivider: { borderTopWidth: 1, borderTopColor: colors.border },

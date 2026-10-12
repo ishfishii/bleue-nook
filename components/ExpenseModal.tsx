@@ -14,7 +14,6 @@ import {
 
 import { colors, fonts } from '../constants/theme';
 import { fetchCategories, fetchMerchants, createMerchant, Category, Merchant, Expense as ApiExpense } from '../services/api';
-import { Chip } from './Chip';
 
 const getPHTDate = () => {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
@@ -44,8 +43,12 @@ export function ExpenseModal({ visible, expense, onClose, onSave }: Props) {
   const [amount, setAmount] = useState('');
   const [selectedMerchantId, setSelectedMerchantId] = useState<string>('');
   const [merchantQuery, setMerchantQuery] = useState('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMerchantDropdownOpen, setIsMerchantDropdownOpen] = useState(false);
+  
   const [categoryId, setCategoryId] = useState<string>('');
+  const [categoryQuery, setCategoryQuery] = useState('');
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  
   const [orderReference, setOrderReference] = useState('');
 
   useEffect(() => {
@@ -63,13 +66,17 @@ export function ExpenseModal({ visible, expense, onClose, onSave }: Props) {
         setSelectedMerchantId(expense.merchantId);
         setMerchantQuery(expense.merchantName || '');
         setCategoryId(expense.categoryId);
+        setCategoryQuery(expense.categoryName || '');
         setOrderReference(expense.orderReference || '');
       } else {
         setDate(getPHTDate());
         setName('');
         setAmount('');
         setOrderReference('');
-        if (cats.length > 0) setCategoryId(cats[0].id);
+        if (cats.length > 0) {
+          setCategoryId(cats[0].id);
+          setCategoryQuery(cats[0].name);
+        }
         if (mers.length > 0) {
           setSelectedMerchantId(mers[0].id);
           setMerchantQuery(mers[0].name);
@@ -78,7 +85,8 @@ export function ExpenseModal({ visible, expense, onClose, onSave }: Props) {
     }
 
     loadOptions();
-    setIsDropdownOpen(false);
+    setIsMerchantDropdownOpen(false);
+    setIsCategoryDropdownOpen(false);
   }, [visible, expense]);
 
   const filteredMerchants = merchants.filter((m) =>
@@ -89,10 +97,14 @@ export function ExpenseModal({ visible, expense, onClose, onSave }: Props) {
     (m) => m.name.toLowerCase() === merchantQuery.trim().toLowerCase()
   );
 
+  const filteredCategories = categories.filter((c) =>
+    c.name.toLowerCase().includes(categoryQuery.toLowerCase())
+  );
+
   const handleSelectMerchant = (merchant: Merchant) => {
     setSelectedMerchantId(merchant.id);
     setMerchantQuery(merchant.name);
-    setIsDropdownOpen(false);
+    setIsMerchantDropdownOpen(false);
   };
 
   const handleCreateAndSelectMerchant = async () => {
@@ -103,8 +115,14 @@ export function ExpenseModal({ visible, expense, onClose, onSave }: Props) {
       setMerchants((prev) => [...prev, newMerchant]);
       setSelectedMerchantId(newMerchant.id);
       setMerchantQuery(newMerchant.name);
-      setIsDropdownOpen(false);
+      setIsMerchantDropdownOpen(false);
     }
+  };
+
+  const handleSelectCategory = (category: Category) => {
+    setCategoryId(category.id);
+    setCategoryQuery(category.name);
+    setIsCategoryDropdownOpen(false);
   };
 
   const parsedAmount = parseFloat(amount.replace(/,/g, '')) || 0;
@@ -124,7 +142,14 @@ export function ExpenseModal({ visible, expense, onClose, onSave }: Props) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => { onClose(); setIsDropdownOpen(false); }} />
+        <Pressable 
+          style={StyleSheet.absoluteFill} 
+          onPress={() => { 
+            onClose(); 
+            setIsMerchantDropdownOpen(false);
+            setIsCategoryDropdownOpen(false);
+          }} 
+        />
 
         <View style={s.dialog}>
           <View style={s.header}>
@@ -163,20 +188,23 @@ export function ExpenseModal({ visible, expense, onClose, onSave }: Props) {
           />
 
           <Text style={s.label}>Merchant</Text>
-          <View style={{ position: 'relative', zIndex: 10 }}>
+          <View style={{ position: 'relative', zIndex: 20 }}>
             <TextInput
               value={merchantQuery}
               onChangeText={(text) => {
                 setMerchantQuery(text);
-                setIsDropdownOpen(true);
+                setIsMerchantDropdownOpen(true);
               }}
-              onFocus={() => setIsDropdownOpen(true)}
+              onFocus={() => {
+                setIsMerchantDropdownOpen(true);
+                setIsCategoryDropdownOpen(false);
+              }}
               placeholder="Search or type new merchant"
               placeholderTextColor={colors.muted}
               style={s.input}
             />
 
-            {isDropdownOpen && (
+            {isMerchantDropdownOpen && (
               <View style={s.dropdown}>
                 <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 140 }}>
                   {filteredMerchants.map((m) => (
@@ -201,16 +229,43 @@ export function ExpenseModal({ visible, expense, onClose, onSave }: Props) {
           </View>
 
           <Text style={s.label}>Category</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
-            {categories.map((c) => (
-              <Chip
-                key={c.id}
-                label={c.name}
-                active={categoryId === c.id}
-                onPress={() => setCategoryId(c.id)}
-              />
-            ))}
-          </ScrollView>
+          <View style={{ position: 'relative', zIndex: 10 }}>
+            <TextInput
+              value={categoryQuery}
+              onChangeText={(text) => {
+                setCategoryQuery(text);
+                setIsCategoryDropdownOpen(true);
+              }}
+              onFocus={() => {
+                setIsCategoryDropdownOpen(true);
+                setIsMerchantDropdownOpen(false);
+              }}
+              placeholder="Search category"
+              placeholderTextColor={colors.muted}
+              style={s.input}
+            />
+
+            {isCategoryDropdownOpen && (
+              <View style={s.dropdown}>
+                <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 140 }}>
+                  {filteredCategories.map((c) => (
+                    <Pressable
+                      key={c.id}
+                      style={s.dropdownItem}
+                      onPress={() => handleSelectCategory(c)}
+                    >
+                      <Text style={s.dropdownText}>{c.name}</Text>
+                    </Pressable>
+                  ))}
+                  {filteredCategories.length === 0 && (
+                    <View style={s.dropdownItem}>
+                      <Text style={[s.dropdownText, { color: colors.muted }]}>No categories found</Text>
+                    </View>
+                  )}
+                </ScrollView>
+              </View>
+            )}
+          </View>
 
           <Text style={s.label}>Order reference (optional)</Text>
           <TextInput
@@ -281,7 +336,6 @@ const s = StyleSheet.create({
   dropdownText: { color: colors.text, fontSize: 14 },
   dropdownCreate: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 12, paddingHorizontal: 12, backgroundColor: 'rgba(22,186,197,0.1)' },
   dropdownCreateText: { color: colors.teal, fontSize: 14, fontFamily: fonts.medium },
-  chips: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
   actions: { flexDirection: 'row', gap: 10, marginTop: 12 },
   cancel: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 99, borderColor: colors.border, borderWidth: 1 },
   cancelText: { color: colors.text, fontFamily: fonts.medium, fontSize: 14 },

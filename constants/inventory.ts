@@ -3,10 +3,14 @@ export type InventoryCategory = 'Food' | 'Toiletries' | 'Cleaning supplies' | 'E
 export type InventoryItem = {
   id: string;
   name: string;
-  category: InventoryCategory | null; // null = not sorted yet
+  category: InventoryCategory | null;
   quantity: number;
-  addedOn: string; // YYYY-MM-DD
-  expenseId?: string; // set when the item came from a Groceries expense
+  status?: string;
+  dateOpened?: string | null;
+  storageYears?: number | null;
+  storageMonths?: number | null;
+  storageDays?: number | null;
+  expirationDate?: string | null;
 };
 
 export const INVENTORY_CATEGORIES: InventoryCategory[] = [

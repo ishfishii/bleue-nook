@@ -9,14 +9,22 @@ import { colors, fonts } from '../constants/theme';
 import { fetchExpenses, createExpense, updateExpense, fetchCategories, Expense as ApiExpense, Category as ApiCategory } from '../services/api';
 import { fromISO, pad } from '../lib/date';
 
-const BUDGET = 25000;
-
 const now = new Date();
 const peso = (n: number) => `₱${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 
+// Helper to convert any UTC/ISO date/timestamp accurately to GMT+8 YYYY-MM-DD
+function getGMT8DateString(isoString: string): string {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  const gmt8Date = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  return gmt8Date.toISOString().split('T')[0];
+}
+
 function dayLabel(iso: string) {
-  const dateStr = iso.split('T')[0];
-  return fromISO(dateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  const dateStr = getGMT8DateString(iso);
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const localDate = new Date(y, m - 1, d);
+  return localDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
 function ExpenseRow({ item, first, onPress }: { item: ApiExpense; first: boolean; onPress: () => void }) {
@@ -78,13 +86,11 @@ export default function Expenses() {
     });
 
   const monthExpenses = useMemo(() => expenses.filter((e) => {
-    const expenseDate = e.date ? e.date.split('T')[0] : e.createdAt.split('T')[0];
+    const expenseDate = e.date ? getGMT8DateString(e.date) : getGMT8DateString(e.createdAt);
     return expenseDate.startsWith(monthKey);
   }), [expenses, monthKey]);
 
   const spent = monthExpenses.reduce((sum, e) => sum + e.totalAmount, 0);
-  const left = BUDGET - spent;
-  const daysToGo = new Date(view.y, view.m + 1, 0).getDate() - now.getDate();
 
   const filterOptions = useMemo(() => {
     return ['All', ...categories.map((c) => c.name)];
@@ -97,7 +103,7 @@ export default function Expenses() {
     );
     const byDay = new Map<string, ApiExpense[]>();
     visible.forEach((e) => {
-      const dateKey = e.date ? e.date.split('T')[0] : e.createdAt.split('T')[0];
+      const dateKey = e.date ? getGMT8DateString(e.date) : getGMT8DateString(e.createdAt);
       byDay.set(dateKey, [...(byDay.get(dateKey) ?? []), e]);
     });
     return [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]));
@@ -140,7 +146,7 @@ export default function Expenses() {
 
           <Pressable style={s.add} onPress={() => setModal({ open: true })}>
             <Ionicons name="add" size={18} color={colors.bg} />
-            <Text style={s.addText}>Add</Text>
+            <Text style={s.addText}>Add Expenses</Text>
           </Pressable>
         </View>
 
@@ -166,15 +172,8 @@ export default function Expenses() {
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
             <Text style={s.big}>{peso(spent)}</Text>
-            <Text style={s.small}>spent of {peso(BUDGET)}</Text>
+            <Text style={s.small}>Total Spent</Text>
           </View>
-          <View style={s.track}>
-            <View style={[s.fill, { width: `${Math.min(100, (spent / BUDGET) * 100)}%` }]} />
-          </View>
-          <Text style={s.small}>
-            {left >= 0 ? `${peso(left)} left` : `${peso(-left)} over budget`}
-            {isCurrent ? ` · ${daysToGo} days to go` : ''}
-          </Text>
         </View>
 
         <View style={s.search}>
@@ -260,8 +259,6 @@ const s = StyleSheet.create({
   big: { color: colors.text, fontFamily: fonts.medium, fontSize: 26 },
   small: { color: colors.muted, fontFamily: fonts.regular, fontSize: 12 },
   body: { color: colors.text, fontFamily: fonts.regular, fontSize: 14 },
-  track: { height: 6, backgroundColor: colors.border, borderRadius: 3, marginTop: 10, marginBottom: 6 },
-  fill: { height: 6, backgroundColor: colors.maya, borderRadius: 3 },
   search: {
     flexDirection: 'row',
     alignItems: 'center',

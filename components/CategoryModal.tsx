@@ -28,6 +28,12 @@ const AVAILABLE_ICONS: React.ComponentProps<typeof Ionicons>['name'][] = [
   'book-outline',
   'construct-outline',
   'laptop-outline',
+  'grid-outline',
+  'layers-outline',
+  'ellipsis-horizontal-outline',
+  'cube-outline',
+  'albums-outline',
+  'options-outline',
 ];
 
 export function CategoryModal({ visible, category, onClose, onSave }: CategoryModalProps) {
