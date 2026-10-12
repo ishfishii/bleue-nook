@@ -66,6 +66,13 @@ export default function RootLayout() {
               drawerIcon: ({ color, size }) => <Ionicons name="cube-outline" color={color} size={size} />,
             }}
           />
+          <Drawer.Screen
+  name="categories"
+  options={{
+    drawerItemStyle: { display: 'none' }, // Hides it from the drawer menu
+    title: 'Categories',                 // Header title if navigated to
+  }}
+/>
         </Drawer>
       </StoreProvider>
     </GestureHandlerRootView>

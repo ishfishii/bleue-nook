@@ -17,7 +17,9 @@ export interface Expense {
   categoryId: string;
   categoryName: string;
   autoInventory: boolean;
-  orderReference?: string | null;
+  categoryIcon?: string;
+  orderReference?: string;
+  date?: string;
   createdAt: string;
   items: ExpenseItem[];
 }
@@ -38,6 +40,7 @@ export interface Category {
   id: string;
   name: string;
   autoInventory: boolean;
+  icon?: string;
 }
 
 export interface Merchant {
@@ -125,6 +128,7 @@ export const fetchInventory = async (): Promise<InventoryItem[]> => {
   }
 };
 
+// --- Category Management API ---
 export const fetchCategories = async (): Promise<Category[]> => {
   try {
     const res = await fetch(`${API_BASE_URL}/categories`);
@@ -133,6 +137,36 @@ export const fetchCategories = async (): Promise<Category[]> => {
   } catch (error) {
     console.error('API Error:', error);
     return [];
+  }
+};
+
+export const createCategory = async (values: { name: string; autoInventory: boolean }) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/categories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(values),
+    });
+    if (!res.ok) throw new Error('Failed to create category');
+    return await res.json();
+  } catch (error) {
+    console.error('API Error:', error);
+    return null;
+  }
+};
+
+export const updateCategory = async (id: string, values: { name: string; autoInventory: boolean }) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/categories/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(values),
+    });
+    if (!res.ok) throw new Error('Failed to update category');
+    return await res.json();
+  } catch (error) {
+    console.error('API Error:', error);
+    return null;
   }
 };
 

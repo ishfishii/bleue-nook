@@ -6,17 +6,10 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { Chip } from '../components/Chip';
 import { ExpenseModal } from '../components/ExpenseModal';
 import { colors, fonts } from '../constants/theme';
-import { fetchExpenses, createExpense, updateExpense, Expense as ApiExpense } from '../services/api';
+import { fetchExpenses, createExpense, updateExpense, fetchCategories, Expense as ApiExpense, Category as ApiCategory } from '../services/api';
 import { fromISO, pad } from '../lib/date';
 
 const BUDGET = 25000;
-
-const catStyle: Record<string, { color: string; bg: string; icon: React.ComponentProps<typeof Ionicons>['name'] }> = {
-  Groceries: { color: colors.teal, bg: 'rgba(22,186,197,0.16)', icon: 'cart-outline' },
-  Bills: { color: colors.sapphireText, bg: 'rgba(88,99,248,0.2)', icon: 'flash-outline' },
-  Dining: { color: colors.maya, bg: 'rgba(95,191,249,0.16)', icon: 'cafe-outline' },
-  Other: { color: colors.text, bg: 'rgba(239,233,244,0.12)', icon: 'pricetag-outline' },
-};
 
 const now = new Date();
 const peso = (n: number) => `₱${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
@@ -27,13 +20,13 @@ function dayLabel(iso: string) {
 }
 
 function ExpenseRow({ item, first, onPress }: { item: ApiExpense; first: boolean; onPress: () => void }) {
-  const style = catStyle[item.categoryName] || catStyle['Other'];
+  const iconName = (item.categoryIcon as React.ComponentProps<typeof Ionicons>['name']) || 'pricetag-outline';
   const itemName = item.items?.[0]?.name || item.merchantName;
 
   return (
     <Pressable onPress={onPress} style={[s.row, !first && s.rowDivider]}>
-      <View style={[s.icon, { backgroundColor: style.bg }]}>
-        <Ionicons name={style.icon} size={18} color={style.color} />
+      <View style={[s.icon, { backgroundColor: 'rgba(22,186,197,0.16)' }]}>
+        <Ionicons name={iconName} size={18} color={colors.teal} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={s.body}>{itemName}</Text>
@@ -47,6 +40,7 @@ function ExpenseRow({ item, first, onPress }: { item: ApiExpense; first: boolean
 export default function Expenses() {
   const router = useRouter();
   const [expenses, setExpenses] = useState<ApiExpense[]>([]);
+  const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   const [view, setView] = useState({ y: now.getFullYear(), m: now.getMonth() });
@@ -58,8 +52,9 @@ export default function Expenses() {
 
   const loadData = async () => {
     setLoading(true);
-    const data = await fetchExpenses();
-    setExpenses(data);
+    const [expData, catData] = await Promise.all([fetchExpenses(), fetchCategories()]);
+    setExpenses(expData);
+    setCategories(catData);
     setLoading(false);
   };
 
@@ -90,6 +85,10 @@ export default function Expenses() {
   const spent = monthExpenses.reduce((sum, e) => sum + e.totalAmount, 0);
   const left = BUDGET - spent;
   const daysToGo = new Date(view.y, view.m + 1, 0).getDate() - now.getDate();
+
+  const filterOptions = useMemo(() => {
+    return ['All', ...categories.map((c) => c.name)];
+  }, [categories]);
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -128,7 +127,17 @@ export default function Expenses() {
     <View style={s.screen}>
       <ScrollView contentContainerStyle={s.content}>
         <View style={s.header}>
-          <Text style={s.title}>Expenses (Live DB)</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Text style={s.title}>Expenses</Text>
+            <Pressable 
+              hitSlop={8} 
+              onPress={() => router.push('/categories')} 
+              style={s.gearButton}
+            >
+              <Ionicons name="settings-outline" size={20} color={colors.muted} />
+            </Pressable>
+          </View>
+
           <Pressable style={s.add} onPress={() => setModal({ open: true })}>
             <Ionicons name="add" size={18} color={colors.bg} />
             <Text style={s.addText}>Add</Text>
@@ -180,7 +189,7 @@ export default function Expenses() {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-          {['All', 'Groceries', 'Bills', 'Dining', 'Other'].map((c) => (
+          {filterOptions.map((c) => (
             <Chip key={c} label={c} active={filter === c} onPress={() => setFilter(c)} />
           ))}
         </ScrollView>
@@ -221,6 +230,7 @@ const s = StyleSheet.create({
   content: { padding: 22, gap: 12, width: '100%', maxWidth: 760, alignSelf: 'center' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { color: colors.text, fontFamily: fonts.medium, fontSize: 22 },
+  gearButton: { padding: 4 },
   add: {
     flexDirection: 'row',
     alignItems: 'center',
