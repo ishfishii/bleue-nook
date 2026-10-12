@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -9,22 +10,14 @@ import { fetchInventory, InventoryItem as ApiInventoryItem } from '../services/a
 import { API_BASE_URL } from '../constants/config';
 import { fromISO } from '../lib/date';
 
-const INVENTORY_CATEGORIES = ['Food', 'Beauty & Grooming', 'Cleaning supplies', 'Electronics', 'Others'] as const;
-type InventoryCategory = (typeof INVENTORY_CATEGORIES)[number];
+type InventoryCategory = {
+  id: string;
+  name: string;
+  icon: string;
+};
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
-type Filter = 'All' | 'To sort' | InventoryCategory;
 type StatusFilter = 'Active' | 'For Disposal' | 'Disposed';
-
-const FILTERS: Filter[] = ['All', 'To sort', ...INVENTORY_CATEGORIES];
-
-const catStyle: Record<InventoryCategory, { color: string; bg: string; icon: IconName }> = {
-  Food: { color: colors.teal, bg: 'rgba(22,186,197,0.16)', icon: 'nutrition-outline' },
-  'Beauty & Grooming': { color: colors.maya, bg: 'rgba(95,191,249,0.16)', icon: 'water-outline' },
-  'Cleaning supplies': { color: colors.sapphireText, bg: 'rgba(88,99,248,0.2)', icon: 'sparkles-outline' },
-  Electronics: { color: colors.text, bg: 'rgba(239,233,244,0.12)', icon: 'battery-charging-outline' },
-  Others: { color: colors.muted, bg: 'rgba(154,168,166,0.14)', icon: 'grid-outline' },
-};
 
 // Helper for GMT+8 date formatting
 const shortDate = (iso: string) => {
@@ -47,21 +40,23 @@ function Stat({ label, value, color, onPress }: { label: string; value: number; 
 function ItemRow({
   item,
   first,
+  categoryObj,
   onPress,
   onStep,
 }: {
   item: ApiInventoryItem;
   first: boolean;
+  categoryObj?: InventoryCategory;
   onPress: () => void;
   onStep: (delta: number) => void;
 }) {
-  const c = item.category && item.category in catStyle ? catStyle[item.category as InventoryCategory] : null;
+  const iconName = (categoryObj?.icon as IconName) || 'pricetag-outline';
   const status = item.status === 'out' ? 'Out' : item.status === 'low' ? 'Low' : item.status === 'For Disposal' ? 'Disposal' : null;
 
   return (
     <Pressable onPress={onPress} style={[s.row, !first && s.rowDivider]}>
-      <View style={[s.icon, c ? { backgroundColor: c.bg } : s.iconDashed]}>
-        <Ionicons name={c ? c.icon : 'help-circle-outline'} size={18} color={c ? c.color : colors.muted} />
+      <View style={[s.icon, categoryObj ? { backgroundColor: 'rgba(22,186,197,0.16)' } : s.iconDashed]}>
+        <Ionicons name={categoryObj ? iconName : 'help-circle-outline'} size={18} color={categoryObj ? colors.teal : colors.muted} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={s.body}>{item.name}</Text>
@@ -89,27 +84,42 @@ function ItemRow({
 }
 
 export default function Inventory() {
+  const router = useRouter();
   const [inventory, setInventory] = useState<ApiInventoryItem[]>([]);
+  const [categories, setCategories] = useState<InventoryCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [filter, setFilter] = useState<Filter>('All');
+  const [filter, setFilter] = useState<string>('All');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('Active');
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [modal, setModal] = useState<{ open: boolean; item?: ApiInventoryItem }>({ open: false });
 
-  const loadInventory = async () => {
+  const loadData = async () => {
     setLoading(true);
-    const data = await fetchInventory();
-    setInventory(data);
+    try {
+      const [invData, catRes] = await Promise.all([
+        fetchInventory(),
+        fetch(`${API_BASE_URL}/inventory-categories`),
+      ]);
+      const catData = await catRes.json();
+      setInventory(invData);
+      setCategories(catData);
+    } catch (err) {
+      console.error('Failed to load inventory data:', err);
+    }
     setLoading(false);
   };
 
   useEffect(() => {
-    loadInventory();
+    loadData();
   }, []);
 
   const toSort = inventory.filter((i) => i.category === null && i.status !== 'Disposed').length;
   const low = inventory.filter((i) => (i.status === 'low' || i.status === 'out') && i.status !== 'Disposed').length;
+
+  const categoryMap = useMemo(() => {
+    return new Map(categories.map((c) => [c.name, c]));
+  }, [categories]);
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -122,14 +132,15 @@ export default function Inventory() {
       return inFilter && (!q || i.name.toLowerCase().includes(q));
     });
 
-    const order: (InventoryCategory | null)[] = [null, ...INVENTORY_CATEGORIES];
+    const categoryNames = categories.map((c) => c.name);
+    const order: (string | null)[] = [null, ...categoryNames];
     return order
       .map((key) => ({
         key,
         items: visible.filter((i) => i.category === key).sort((a, b) => a.name.localeCompare(b.name)),
       }))
       .filter((g) => g.items.length > 0);
-  }, [inventory, filter, statusFilter, query]);
+  }, [inventory, categories, filter, statusFilter, query]);
 
   const closeModal = () => setModal((m) => ({ ...m, open: false }));
 
@@ -141,7 +152,7 @@ export default function Inventory() {
         body: JSON.stringify({ quantity: newQty }),
       });
       if (res.ok) {
-        loadInventory();
+        loadData();
       }
     } catch (err) {
       console.error('Failed to update quantity:', err);
@@ -163,7 +174,7 @@ export default function Inventory() {
       });
 
       if (res.ok) {
-        loadInventory();
+        loadData();
       }
     } catch (err) {
       console.error('Failed to save item:', err);
@@ -171,11 +182,23 @@ export default function Inventory() {
     closeModal();
   };
 
+  const filterOptions = ['All', 'To sort', ...categories.map((c) => c.name)];
+
   return (
     <View style={s.screen}>
       <ScrollView contentContainerStyle={s.content}>
         <View style={s.headerRow}>
-          <Text style={s.title}>Inventory</Text>
+          <View style={s.titleGroup}>
+            <Text style={s.title}>Inventory</Text>
+            <Pressable 
+              style={s.gearBtn} 
+              hitSlop={8} 
+              onPress={() => router.push('/inventory-categories')}
+            >
+              <Ionicons name="settings-outline" size={18} color={colors.muted} />
+            </Pressable>
+          </View>
+
           <Pressable style={s.addBtn} onPress={() => setModal({ open: true, item: undefined })}>
             <Ionicons name="add" size={16} color={colors.bg} />
             <Text style={s.addBtnText}>Add item</Text>
@@ -239,7 +262,7 @@ export default function Inventory() {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-          {FILTERS.map((f) => (
+          {filterOptions.map((f) => (
             <Chip
               key={f}
               label={f === 'To sort' && toSort > 0 ? `To sort (${toSort})` : f}
@@ -259,25 +282,29 @@ export default function Inventory() {
             <Text style={s.small}>Try changing your category or status filter.</Text>
           </View>
         ) : (
-          groups.map(({ key, items }) => (
-            <View key={key ?? 'to-sort'}>
-              <View style={s.groupHeader}>
-                <Text style={[s.small, key === null && { color: colors.teal }]}>{key ?? 'To sort'}</Text>
-                <Text style={s.small}>{items.length}</Text>
+          groups.map(({ key, items }) => {
+            const catObj = key ? categoryMap.get(key) : undefined;
+            return (
+              <View key={key ?? 'to-sort'}>
+                <View style={s.groupHeader}>
+                  <Text style={[s.small, key === null && { color: colors.teal }]}>{key ?? 'To sort'}</Text>
+                  <Text style={s.small}>{items.length}</Text>
+                </View>
+                <View style={[s.card, { padding: 0 }]}>
+                  {items.map((item, i) => (
+                    <ItemRow
+                      key={item.id}
+                      item={item}
+                      first={i === 0}
+                      categoryObj={catObj}
+                      onPress={() => setModal({ open: true, item })}
+                      onStep={(delta) => handleUpdateQuantity(item.id, Math.max(0, item.quantity + delta))}
+                    />
+                  ))}
+                </View>
               </View>
-              <View style={[s.card, { padding: 0 }]}>
-                {items.map((item, i) => (
-                  <ItemRow
-                    key={item.id}
-                    item={item}
-                    first={i === 0}
-                    onPress={() => setModal({ open: true, item })}
-                    onStep={(delta) => handleUpdateQuantity(item.id, Math.max(0, item.quantity + delta))}
-                  />
-                ))}
-              </View>
-            </View>
-          ))
+            );
+          })
         )}
       </ScrollView>
 
@@ -290,7 +317,17 @@ const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: 22, gap: 12, width: '100%', maxWidth: 760, alignSelf: 'center' },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   title: { color: colors.text, fontFamily: fonts.medium, fontSize: 22 },
+  gearBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',

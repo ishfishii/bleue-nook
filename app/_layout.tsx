@@ -67,12 +67,19 @@ export default function RootLayout() {
             }}
           />
           <Drawer.Screen
-  name="categories"
-  options={{
-    drawerItemStyle: { display: 'none' }, // Hides it from the drawer menu
-    title: 'Categories',                 // Header title if navigated to
-  }}
-/>
+            name="expense-categories"
+            options={{
+              drawerItemStyle: { display: 'none' }, // Hides it from the drawer menu
+              title: 'Expense Categories',                 // Header title if navigated to
+            }}
+          />
+          <Drawer.Screen
+            name="inventory-categories"
+            options={{
+              drawerItemStyle: { display: 'none' }, // Hides it from the drawer menu
+              title: 'Inventory Categories',                 // Header title if navigated to
+            }}
+          />
         </Drawer>
       </StoreProvider>
     </GestureHandlerRootView>

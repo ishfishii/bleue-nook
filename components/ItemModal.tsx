@@ -81,7 +81,7 @@ export function ItemModal({ visible, item, onClose, onSave }: Props) {
     setCategory(item.category || null);
     setQuantity(item.quantity ?? 1);
     setStatus(item.status || 'Active');
-    setLocation(item.location || '');
+    setLocation(item.storageLocation || item.location || '');
     setIsEssential(item.isEssential ?? false);
 
     const exp = item.expirationDate ? getGMT8DateString(item.expirationDate) : '';
@@ -135,6 +135,7 @@ export function ItemModal({ visible, item, onClose, onSave }: Props) {
       expirationDate: hasExpiry && expirationDate ? expirationDate : null,
       isEssential,
       location: location.trim() || null,
+      storageLocation: location.trim() || null,
     });
   };
 
