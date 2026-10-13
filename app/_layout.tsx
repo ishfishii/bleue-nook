@@ -67,7 +67,7 @@ export default function RootLayout() {
             }}
           />
           <Drawer.Screen
-            name="expense-categories"
+            name="expense-settings"
             options={{
               drawerItemStyle: { display: 'none' }, // Hides it from the drawer menu
               title: 'Expense Categories',                 // Header title if navigated to

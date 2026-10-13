@@ -203,7 +203,7 @@ export default function Expenses() {
             <Pressable 
               style={s.gearBtn} 
               hitSlop={8} 
-              onPress={() => router.push('/expense-categories')}
+              onPress={() => router.push('/expense-settings')}
             >
               <Ionicons name="settings-outline" size={18} color={colors.muted} />
             </Pressable>

@@ -16,8 +16,9 @@ import { Chip } from '../components/Chip';
 import { colors, fonts } from '../constants/theme';
 import { fetchCategories, fetchMerchants, createMerchant, Category, Merchant, Expense as ApiExpense } from '../services/api';
 
-const getPHTDate = () => {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+const getPHTDate = (dateVal?: string | Date) => {
+  const d = dateVal ? new Date(dateVal) : new Date();
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
 };
 
 const PAYMENT_METHODS = ['Cash', 'GCash', 'Maya', 'Debit', 'Credit Card'] as const;
@@ -68,7 +69,7 @@ export function ExpenseModal({ visible, expense, onClose, onSave }: Props) {
       setMerchants(mers);
 
       if (expense) {
-        setDate(expense.date ? expense.date.substring(0, 10) : getPHTDate());
+        setDate(expense.date ? getPHTDate(expense.date) : getPHTDate());
         setName(expense.items?.[0]?.name || '');
         setAmount(String(expense.totalAmount || ''));
         setPaymentMethod(expense.paymentMethod || 'Cash');
@@ -137,16 +138,21 @@ export function ExpenseModal({ visible, expense, onClose, onSave }: Props) {
     setIsCategoryDropdownOpen(false);
   };
 
-  const parsedAmount = parseFloat(amount.replace(/,/g, '')) || 0;
-  const canSave = name.trim().length > 0 && parsedAmount !== 0 && selectedMerchantId && categoryId && date.trim().length > 0;
+  const cleanAmountStr = amount.replace(/,/g, '').trim();
+  const parsedAmount = cleanAmountStr === '' || cleanAmountStr === '-' ? 0 : parseFloat(cleanAmountStr);
+  const canSave = 
+  name.trim().length > 0 && 
+  !isNaN(parsedAmount) && 
+  parsedAmount !== 0 && 
+  date.trim().length > 0;
 
   const handleSavePress = () => {
     if (!canSave) return;
     onSave({
-      merchantId: selectedMerchantId,
-      categoryId,
+      merchantId: selectedMerchantId || undefined,
+      categoryId: categoryId || undefined,
       paymentMethod,
-      status, // 👈 Pass status in save payload
+      status,
       orderReference: orderReference.trim() || undefined,
       date,
       items: [{ name: name.trim(), quantity: 1, unitPrice: parsedAmount }],
@@ -196,9 +202,9 @@ export function ExpenseModal({ visible, expense, onClose, onSave }: Props) {
             <TextInput
               value={amount}
               onChangeText={setAmount}
-              placeholder="0.00"
+              placeholder="0.00 or -0.00"
               placeholderTextColor={colors.muted}
-              keyboardType="decimal-pad"
+              keyboardType="default"
               style={s.input}
             />
 
