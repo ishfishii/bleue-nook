@@ -12,7 +12,8 @@ import {
   View,
 } from 'react-native';
 
-import { colors, fonts } from '../constants/theme';
+import { fonts } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 import { Chip } from './Chip';
 
 export type ItemValues = {
@@ -58,6 +59,8 @@ function computeExpiry(opened: string, y?: number, m?: number, d?: number) {
 }
 
 export function ItemModal({ visible, item, onClose, onSave }: Props) {
+  const { colors } = useTheme();
+
   const [name, setName] = useState('');
   const [category, setCategory] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -144,81 +147,86 @@ export function ItemModal({ visible, item, onClose, onSave }: Props) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 
-        <View style={s.dialog}>
+        <View style={[s.dialog, { backgroundColor: colors.sidebar, borderColor: colors.border }]}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 10 }}>
             <View style={s.header}>
-              <Text style={s.title}>Edit item</Text>
+              <Text style={[s.title, { color: colors.text }]}>Edit item</Text>
               <Pressable hitSlop={10} onPress={onClose}>
                 <Ionicons name="close" size={22} color={colors.muted} />
               </Pressable>
             </View>
 
-            <Text style={s.label}>Name</Text>
-            <TextInput value={name} onChangeText={setName} placeholderTextColor={colors.muted} style={s.input} />
+            <Text style={[s.label, { color: colors.muted }]}>Name</Text>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholderTextColor={colors.muted}
+              style={[s.input, { color: colors.text, backgroundColor: colors.card, borderColor: colors.border }]}
+            />
 
-            <Text style={s.label}>Category</Text>
+            <Text style={[s.label, { color: colors.muted }]}>Category</Text>
             <View style={s.chips}>
               {INVENTORY_CATEGORIES.map((c) => (
                 <Chip key={c} label={c} active={category === c} onPress={() => setCategory(category === c ? null : c)} />
               ))}
             </View>
-            {category === null && <Text style={s.hint}>Not sorted yet. Pick a category to file it.</Text>}
+            {category === null && <Text style={[s.hint, { color: colors.muted }]}>Not sorted yet. Pick a category to file it.</Text>}
 
-            <Text style={s.label}>Status</Text>
+            <Text style={[s.label, { color: colors.muted }]}>Status</Text>
             <View style={s.chips}>
               {(['Active', 'For Disposal', 'Disposed'] as const).map((st) => (
                 <Chip key={st} label={st} active={status === st} onPress={() => setStatus(st)} />
               ))}
             </View>
 
-            <Text style={s.label}>Storage Location (e.g., Pantry, Bathroom Shelf)</Text>
+            <Text style={[s.label, { color: colors.muted }]}>Storage Location (e.g., Pantry, Bathroom Shelf)</Text>
             <TextInput
               value={location}
               onChangeText={setLocation}
               placeholder="Enter location"
               placeholderTextColor={colors.muted}
-              style={s.input}
+              style={[s.input, { color: colors.text, backgroundColor: colors.card, borderColor: colors.border }]}
             />
 
-            <Text style={s.label}>How many do you have?</Text>
+            <Text style={[s.label, { color: colors.muted }]}>How many do you have?</Text>
             <View style={s.stepper}>
-              <Pressable style={s.stepBtn} hitSlop={6} onPress={() => setQuantity((q) => Math.max(0, q - 1))}>
+              <Pressable style={[s.stepBtn, { borderColor: colors.border }]} hitSlop={6} onPress={() => setQuantity((q) => Math.max(0, q - 1))}>
                 <Ionicons name="remove" size={20} color={colors.text} />
               </Pressable>
-              <Text style={s.qty}>{quantity}</Text>
-              <Pressable style={s.stepBtn} hitSlop={6} onPress={() => setQuantity((q) => q + 1)}>
+              <Text style={[s.qty, { color: colors.text }]}>{quantity}</Text>
+              <Pressable style={[s.stepBtn, { borderColor: colors.border }]} hitSlop={6} onPress={() => setQuantity((q) => q + 1)}>
                 <Ionicons name="add" size={20} color={colors.text} />
               </Pressable>
             </View>
 
             {/* Checkbox for Is Essential? */}
             <Pressable style={s.checkboxRow} onPress={() => setIsEssential(!isEssential)}>
-              <View style={[s.checkbox, isEssential && s.checkboxChecked]}>
+              <View style={[s.checkbox, { backgroundColor: colors.card, borderColor: colors.border }, isEssential && { backgroundColor: colors.teal, borderColor: colors.teal }]}>
                 {isEssential && <Ionicons name="checkmark" size={12} color={colors.bg} />}
               </View>
-              <Text style={s.body}>Is Essential?</Text>
+              <Text style={[s.body, { color: colors.text }]}>Is Essential?</Text>
             </Pressable>
 
             {/* Checkbox for Expires? */}
             <Pressable style={s.checkboxRow} onPress={() => setHasExpiry(!hasExpiry)}>
-              <View style={[s.checkbox, hasExpiry && s.checkboxChecked]}>
+              <View style={[s.checkbox, { backgroundColor: colors.card, borderColor: colors.border }, hasExpiry && { backgroundColor: colors.teal, borderColor: colors.teal }]}>
                 {hasExpiry && <Ionicons name="checkmark" size={12} color={colors.bg} />}
               </View>
-              <Text style={s.body}>Expires?</Text>
+              <Text style={[s.body, { color: colors.text }]}>Expires?</Text>
             </Pressable>
 
             {hasExpiry && (
-              <View style={s.expiryContainer}>
-                <Text style={s.label}>Date Opened (YYYY-MM-DD)</Text>
+              <View style={[s.expiryContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={[s.label, { color: colors.muted }]}>Date Opened (YYYY-MM-DD)</Text>
                 <TextInput
                   value={dateOpened}
                   onChangeText={(val) => handleStorageChange(val, storageYears, storageMonths, storageDays)}
                   placeholder="YYYY-MM-DD"
                   placeholderTextColor={colors.muted}
-                  style={s.input}
+                  style={[s.input, { color: colors.text, backgroundColor: colors.bg, borderColor: colors.border }]}
                 />
 
-                <Text style={s.label}>Storage Life (Years / Months / Days)</Text>
+                <Text style={[s.label, { color: colors.muted }]}>Storage Life (Years / Months / Days)</Text>
                 <View style={s.storageRow}>
                   <TextInput
                     value={storageYears}
@@ -226,7 +234,7 @@ export function ItemModal({ visible, item, onClose, onSave }: Props) {
                     placeholder="Years"
                     placeholderTextColor={colors.muted}
                     keyboardType="number-pad"
-                    style={s.storageInput}
+                    style={[s.storageInput, { color: colors.text, backgroundColor: colors.bg, borderColor: colors.border }]}
                   />
                   <TextInput
                     value={storageMonths}
@@ -234,7 +242,7 @@ export function ItemModal({ visible, item, onClose, onSave }: Props) {
                     placeholder="Months"
                     placeholderTextColor={colors.muted}
                     keyboardType="number-pad"
-                    style={s.storageInput}
+                    style={[s.storageInput, { color: colors.text, backgroundColor: colors.bg, borderColor: colors.border }]}
                   />
                   <TextInput
                     value={storageDays}
@@ -242,31 +250,31 @@ export function ItemModal({ visible, item, onClose, onSave }: Props) {
                     placeholder="Days"
                     placeholderTextColor={colors.muted}
                     keyboardType="number-pad"
-                    style={s.storageInput}
+                    style={[s.storageInput, { color: colors.text, backgroundColor: colors.bg, borderColor: colors.border }]}
                   />
                 </View>
 
-                <Text style={s.label}>Expiration Date (YYYY-MM-DD)</Text>
+                <Text style={[s.label, { color: colors.muted }]}>Expiration Date (YYYY-MM-DD)</Text>
                 <TextInput
                   value={expirationDate}
                   onChangeText={setExpirationDate}
                   placeholder="YYYY-MM-DD"
                   placeholderTextColor={colors.muted}
-                  style={s.input}
+                  style={[s.input, { color: colors.text, backgroundColor: colors.bg, borderColor: colors.border }]}
                 />
               </View>
             )}
 
             <View style={s.actions}>
-              <Pressable style={s.cancel} onPress={onClose}>
-                <Text style={s.cancelText}>Cancel</Text>
+              <Pressable style={[s.cancel, { borderColor: colors.border }]} onPress={onClose}>
+                <Text style={[s.cancelText, { color: colors.text }]}>Cancel</Text>
               </Pressable>
               <Pressable
-                style={[s.save, !canSave && { opacity: 0.4 }]}
+                style={[s.save, { backgroundColor: colors.teal }, !canSave && { opacity: 0.4 }]}
                 disabled={!canSave}
                 onPress={handleSavePress}
               >
-                <Text style={s.saveText}>Save changes</Text>
+                <Text style={[s.saveText, { color: colors.bg }]}>Save changes</Text>
               </Pressable>
             </View>
           </ScrollView>
@@ -276,7 +284,6 @@ export function ItemModal({ visible, item, onClose, onSave }: Props) {
   );
 }
 
-// Support default import as well to prevent any import mismatches
 export default ItemModal;
 
 const s = StyleSheet.create({
@@ -285,27 +292,22 @@ const s = StyleSheet.create({
     width: '100%',
     maxWidth: 440,
     maxHeight: '90%',
-    backgroundColor: colors.sidebar,
-    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 16,
     padding: 20,
   },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  title: { color: colors.text, fontFamily: fonts.medium, fontSize: 18 },
-  label: { color: colors.muted, fontFamily: fonts.regular, fontSize: 12, marginTop: 6 },
-  hint: { color: colors.muted, fontFamily: fonts.regular, fontSize: 12 },
-  body: { color: colors.text, fontFamily: fonts.regular, fontSize: 14 },
+  title: { fontFamily: fonts.medium, fontSize: 18 },
+  label: { fontFamily: fonts.regular, fontSize: 12, marginTop: 6 },
+  hint: { fontFamily: fonts.regular, fontSize: 12 },
+  body: { fontFamily: fonts.regular, fontSize: 14 },
   input: {
-    color: colors.text,
     fontFamily: fonts.regular,
     fontSize: 15,
-    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 44,
-    backgroundColor: colors.card,
   },
   storageRow: {
     flexDirection: 'row',
@@ -315,15 +317,12 @@ const s = StyleSheet.create({
   storageInput: {
     flex: 1,
     minWidth: 0,
-    color: colors.text,
     fontFamily: fonts.regular,
     fontSize: 14,
     textAlign: 'center',
-    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 10,
     height: 44,
-    backgroundColor: colors.card,
     paddingHorizontal: 4,
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -332,27 +331,21 @@ const s = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    borderColor: colors.border,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  qty: { color: colors.text, fontFamily: fonts.medium, fontSize: 18, minWidth: 44, textAlign: 'center' },
+  qty: { fontFamily: fonts.medium, fontSize: 18, minWidth: 44, textAlign: 'center' },
   checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   checkbox: {
     width: 20,
     height: 20,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxChecked: { backgroundColor: colors.teal, borderColor: colors.teal },
   expiryContainer: {
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 10,
     padding: 12,
@@ -360,8 +353,8 @@ const s = StyleSheet.create({
     gap: 4,
   },
   actions: { flexDirection: 'row', gap: 10, marginTop: 16 },
-  cancel: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 99, borderColor: colors.border, borderWidth: 1 },
-  cancelText: { color: colors.text, fontFamily: fonts.medium, fontSize: 14 },
-  save: { flex: 1.5, alignItems: 'center', paddingVertical: 12, borderRadius: 99, backgroundColor: colors.teal },
-  saveText: { color: colors.bg, fontFamily: fonts.medium, fontSize: 14 },
+  cancel: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 99, borderWidth: 1 },
+  cancelText: { fontFamily: fonts.medium, fontSize: 14 },
+  save: { flex: 1.5, alignItems: 'center', paddingVertical: 12, borderRadius: 99 },
+  saveText: { fontFamily: fonts.medium, fontSize: 14 },
 });

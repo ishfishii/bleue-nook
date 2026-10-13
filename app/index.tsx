@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { colors, fonts } from '../constants/theme';
+import { fonts } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 import { checkServerHealth, fetchExpenses, fetchInventory, fetchCategories, Expense, InventoryItem, Category } from '../services/api';
 import { pad } from '../lib/date';
 
@@ -18,6 +19,7 @@ function getGMT8DateString(isoString: string): string {
 }
 
 export default function Home() {
+  const { colors } = useTheme();
   const [connectionStatus, setConnectionStatus] = useState<string>('Testing connection...');
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -97,28 +99,28 @@ export default function Home() {
   }).slice(0, 4);
 
   return (
-    <ScrollView style={s.screen} contentContainerStyle={s.content}>
+    <ScrollView style={[s.screen, { backgroundColor: colors.bg }]} contentContainerStyle={s.content}>
       <View style={s.header}>
         <View>
-          <Text style={s.title}>Home</Text>
-          <Text style={s.small}>{today} • {connectionStatus}</Text>
+          <Text style={[s.title, { color: colors.text }]}>Home</Text>
+          <Text style={[s.small, { color: colors.muted }]}>{today} • {connectionStatus}</Text>
         </View>
-        <Pressable style={s.add} onPress={loadData}>
+        <Pressable style={[s.add, { backgroundColor: colors.teal }]} onPress={loadData}>
           <Ionicons name="refresh" size={16} color={colors.bg} />
-          <Text style={s.addText}>Refresh</Text>
+          <Text style={[s.addText, { color: colors.bg }]}>Refresh</Text>
         </Pressable>
       </View>
 
       <View style={s.row}>
-        <View style={[s.card, s.stat]}>
-          <Text style={s.label}>Spent this month</Text>
-          <Text style={s.big}>{peso(spent)}</Text>
-          <Text style={s.small}>Live from PostgreSQL</Text>
+        <View style={[s.card, s.stat, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[s.label, { color: colors.muted }]}>Spent this month</Text>
+          <Text style={[s.big, { color: colors.text }]}>{peso(spent)}</Text>
+          <Text style={[s.small, { color: colors.muted }]}>Live from PostgreSQL</Text>
         </View>
 
-        <View style={[s.card, s.stat]}>
-          <Text style={s.label}>Inventory items</Text>
-          <Text style={s.big}>{inventory.filter(i => i.status !== 'Disposed').length}</Text>
+        <View style={[s.card, s.stat, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[s.label, { color: colors.muted }]}>Inventory items</Text>
+          <Text style={[s.big, { color: colors.text }]}>{inventory.filter(i => i.status !== 'Disposed').length}</Text>
           <Text style={[s.small, { color: restockItems.length > 0 ? colors.sapphireText : colors.muted }]}>
             {restockItems.length} need restock
           </Text>
@@ -126,8 +128,8 @@ export default function Home() {
       </View>
 
       {categoryPcts.length > 0 && (
-        <View style={s.card}>
-          <Text style={s.h3}>Spending by category</Text>
+        <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[s.h3, { color: colors.text }]}>Spending by category</Text>
           <View style={s.bar}>
             {categoryPcts.map((c) => (
               <View key={c.name} style={{ flex: c.pct, backgroundColor: c.color }} />
@@ -137,7 +139,7 @@ export default function Home() {
             {categoryPcts.map((c) => (
               <View key={c.name} style={s.legendItem}>
                 <View style={[s.dot, { backgroundColor: c.color }]} />
-                <Text style={s.small}>{c.name} {c.pct}%</Text>
+                <Text style={[s.small, { color: colors.muted }]}>{c.name} {c.pct}%</Text>
               </View>
             ))}
           </View>
@@ -146,19 +148,19 @@ export default function Home() {
 
       <View style={s.row}>
         {/* For Restock Card */}
-        <View style={[s.card, s.half]}>
-          <Text style={s.h3}>For Restock (Essential)</Text>
+        <View style={[s.card, s.half, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[s.h3, { color: colors.text }]}>For Restock (Essential)</Text>
           {restockItems.length === 0 ? (
-            <Text style={s.small}>All essential inventory items are well-stocked!</Text>
+            <Text style={[s.small, { color: colors.muted }]}>All essential inventory items are well-stocked!</Text>
           ) : (
             restockItems.map((l, i) => (
-              <View key={l.id} style={[s.item, i > 0 && s.divider]}>
+              <View key={l.id} style={[s.item, i > 0 && { borderTopWidth: 1, borderTopColor: colors.border }]}>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.body}>{l.name}</Text>
-                  <Text style={s.small}>{l.category || 'General'}</Text>
+                  <Text style={[s.body, { color: colors.text }]}>{l.name}</Text>
+                  <Text style={[s.small, { color: colors.muted }]}>{l.category || 'General'}</Text>
                 </View>
-                <View style={s.chip}>
-                  <Text style={s.chipText}>{l.quantity} left</Text>
+                <View style={[s.chip, { borderColor: colors.sapphire }]}>
+                  <Text style={[s.chipText, { color: colors.sapphireText }]}>{l.quantity} left</Text>
                 </View>
               </View>
             ))
@@ -166,10 +168,10 @@ export default function Home() {
         </View>
 
         {/* Expiring Soon / Expired Card */}
-        <View style={[s.card, s.half]}>
-          <Text style={s.h3}>Expiring Soon / Expired</Text>
+        <View style={[s.card, s.half, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[s.h3, { color: colors.text }]}>Expiring Soon / Expired</Text>
           {expiringItems.length === 0 ? (
-            <Text style={s.small}>No items expiring within the next month.</Text>
+            <Text style={[s.small, { color: colors.muted }]}>No items expiring within the next month.</Text>
           ) : (
             expiringItems.map((e, i) => {
               const expStr = e.expirationDate ? getGMT8DateString(e.expirationDate) : '';
@@ -195,10 +197,10 @@ export default function Home() {
               }
 
               return (
-                <View key={e.id} style={[s.item, i > 0 && s.divider]}>
+                <View key={e.id} style={[s.item, i > 0 && { borderTopWidth: 1, borderTopColor: colors.border }]}>
                   <View style={{ flex: 1 }}>
-                    <Text style={s.body}>{e.name}</Text>
-                    <Text style={s.small}>Exp: {expStr || 'N/A'}</Text>
+                    <Text style={[s.body, { color: colors.text }]}>{e.name}</Text>
+                    <Text style={[s.small, { color: colors.muted }]}>Exp: {expStr || 'N/A'}</Text>
                   </View>
                   <View style={[s.chip, { borderColor: badgeColor }]}>
                     <Text style={[s.chipText, { color: badgeColor }]}>{badgeText}</Text>
@@ -214,42 +216,38 @@ export default function Home() {
 }
 
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
+  screen: { flex: 1 },
   content: { padding: 22, gap: 10 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  title: { color: colors.text, fontFamily: fonts.medium, fontSize: 22 },
+  title: { fontFamily: fonts.medium, fontSize: 22 },
   add: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.teal,
     borderRadius: 99,
     paddingVertical: 8,
     paddingLeft: 12,
     paddingRight: 16,
   },
-  addText: { color: colors.bg, fontFamily: fonts.medium, fontSize: 14 },
+  addText: { fontFamily: fonts.medium, fontSize: 14 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   card: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 12,
     padding: 14,
   },
   stat: { flexGrow: 1, flexBasis: 150 },
   half: { flexGrow: 1, flexBasis: 280 },
-  label: { color: colors.muted, fontFamily: fonts.regular, fontSize: 12 },
-  big: { color: colors.text, fontFamily: fonts.medium, fontSize: 24, marginVertical: 4 },
-  small: { color: colors.muted, fontFamily: fonts.regular, fontSize: 12 },
-  body: { color: colors.text, fontFamily: fonts.regular, fontSize: 14 },
-  h3: { color: colors.text, fontFamily: fonts.medium, fontSize: 14, marginBottom: 10 },
+  label: { fontFamily: fonts.regular, fontSize: 12 },
+  big: { fontFamily: fonts.medium, fontSize: 24, marginVertical: 4 },
+  small: { fontFamily: fonts.regular, fontSize: 12 },
+  body: { fontFamily: fonts.regular, fontSize: 14 },
+  h3: { fontFamily: fonts.medium, fontSize: 14, marginBottom: 10 },
   bar: { flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden', gap: 2 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 10 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   item: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
-  divider: { borderTopWidth: 1, borderTopColor: colors.border },
-  chip: { borderColor: colors.sapphire, borderWidth: 1, borderRadius: 99, paddingHorizontal: 9, paddingVertical: 2 },
-  chipText: { color: colors.sapphireText, fontFamily: fonts.regular, fontSize: 12 },
+  chip: { borderWidth: 1, borderRadius: 99, paddingHorizontal: 9, paddingVertical: 2 },
+  chipText: { fontFamily: fonts.regular, fontSize: 12 },
 });

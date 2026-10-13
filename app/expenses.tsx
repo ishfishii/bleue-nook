@@ -5,7 +5,8 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 
 import { Chip } from '../components/Chip';
 import { ExpenseModal } from '../components/ExpenseModal';
-import { colors, fonts } from '../constants/theme';
+import { fonts } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 import { fetchExpenses, fetchCategories, fetchMerchants, createExpense, updateExpense, Expense as ApiExpense, Category, Merchant } from '../services/api';
 import { API_BASE_URL } from '../constants/config';
 import { fromISO } from '../lib/date';
@@ -32,14 +33,15 @@ function ExpenseRow({
   categoryIcon?: string;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
   const iconName = (categoryIcon as React.ComponentProps<typeof Ionicons>['name']) || 'pricetag-outline';
   const paymentMethod = expense.paymentMethod || 'Cash';
   const isPending = expense.status === 'Pending';
   const isIncome = expense.totalAmount < 0;
 
   return (
-    <Pressable onPress={onPress} style={[s.row, !first && s.rowDivider]}>
-      <View style={[s.icon, isIncome && { backgroundColor: 'rgba(46, 204, 113, 0.16)' }]}>
+    <Pressable onPress={onPress} style={[s.row, !first && { borderTopColor: colors.border, borderTopWidth: 1 }]}>
+      <View style={[s.icon, { backgroundColor: isIncome ? 'rgba(46, 204, 113, 0.16)' : 'rgba(22,186,197,0.16)' }]}>
         <Ionicons 
           name={isIncome ? 'wallet-outline' : iconName} 
           size={18} 
@@ -47,8 +49,8 @@ function ExpenseRow({
         />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={s.body}>{expense.items?.[0]?.name || expense.merchantName || 'Expense'}</Text>
-        <Text style={s.small}>
+        <Text style={[s.body, { color: colors.text }]}>{expense.items?.[0]?.name || expense.merchantName || 'Expense'}</Text>
+        <Text style={[s.small, { color: colors.muted }]}>
           {expense.merchantName || 'Unknown Merchant'} · {shortDate(expense.date || expense.createdAt)}
           {expense.orderReference ? ` · ${expense.orderReference}` : ''}
         </Text>
@@ -61,11 +63,11 @@ function ExpenseRow({
         </Text>
       </View>
 
-      <View style={s.pmChip}>
-        <Text style={s.pmChipText}>{paymentMethod}</Text>
+      <View style={[s.pmChip, { borderColor: colors.border, backgroundColor: colors.bg }]}>
+        <Text style={[s.pmChipText, { color: colors.muted }]}>{paymentMethod}</Text>
       </View>
 
-      <Text style={[s.amount, isIncome && { color: '#2ecc71' }]}>
+      <Text style={[s.amount, { color: colors.text }, isIncome && { color: '#2ecc71' }]}>
         {isIncome ? `+${peso(Math.abs(expense.totalAmount))}` : peso(expense.totalAmount)}
       </Text>
     </Pressable>
@@ -74,6 +76,7 @@ function ExpenseRow({
 
 export default function Expenses() {
   const router = useRouter();
+  const { colors } = useTheme();
   const [expenses, setExpenses] = useState<ApiExpense[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [merchants, setMerchants] = useState<Merchant[]>([]);
@@ -164,8 +167,16 @@ export default function Expenses() {
     const rangeStart = `${selectedYear}-${monthStr}-01`;
     const rangeEnd = `${selectedYear}-${monthStr}-${pad(maxDay)}`;
 
+    // Helper to get PHT (GMT+8) date string for filtering
+    const getPHTDateStr = (iso: string) => {
+      if (!iso) return '';
+      const date = new Date(iso);
+      const gmt8Date = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+      return gmt8Date.toISOString().split('T')[0];
+    };
+
     return expenses.filter((e) => {
-      const expDate = e.date ? e.date.substring(0, 10) : '';
+      const expDate = getPHTDateStr(e.date || e.createdAt);
       const inDateRange = expDate >= rangeStart && expDate <= rangeEnd;
       
       const matchesCategory = selectedCategory === 'All' || e.categoryId === selectedCategory || e.categoryName === selectedCategory;
@@ -195,13 +206,13 @@ export default function Expenses() {
   const filterOptions = ['All', ...categories.map((c) => c.name)];
 
   return (
-    <View style={s.screen}>
+    <View style={[s.screen, { backgroundColor: colors.bg }]}>
       <ScrollView contentContainerStyle={s.content}>
         <View style={s.headerRow}>
           <View style={s.titleGroup}>
-            <Text style={s.title}>Expenses</Text>
+            <Text style={[s.title, { color: colors.text }]}>Expenses</Text>
             <Pressable 
-              style={s.gearBtn} 
+              style={[s.gearBtn, { backgroundColor: colors.card, borderColor: colors.border }]} 
               hitSlop={8} 
               onPress={() => router.push('/expense-settings')}
             >
@@ -209,36 +220,36 @@ export default function Expenses() {
             </Pressable>
           </View>
 
-          <Pressable style={s.addBtn} onPress={() => setModal({ open: true, expense: undefined })}>
+          <Pressable style={[s.addBtn, { backgroundColor: colors.teal }]} onPress={() => setModal({ open: true, expense: undefined })}>
             <Ionicons name="add" size={16} color={colors.bg} />
-            <Text style={s.addBtnText}>Add expense</Text>
+            <Text style={[s.addBtnText, { color: colors.bg }]}>Add expense</Text>
           </Pressable>
         </View>
 
         {/* Month Selector Bar */}
-        <View style={[s.card, s.monthSelectorCard]}>
-          <Pressable style={s.monthNavBtn} onPress={handlePrevMonth} hitSlop={8}>
+        <View style={[s.card, s.monthSelectorCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Pressable style={[s.monthNavBtn, { backgroundColor: colors.bg, borderColor: colors.border }]} onPress={handlePrevMonth} hitSlop={8}>
             <Ionicons name="chevron-back" size={18} color={colors.text} />
           </Pressable>
-          <Text style={s.monthTitle}>{formattedMonthLabel}</Text>
-          <Pressable style={s.monthNavBtn} onPress={handleNextMonth} hitSlop={8}>
+          <Text style={[s.monthTitle, { color: colors.text }]}>{formattedMonthLabel}</Text>
+          <Pressable style={[s.monthNavBtn, { backgroundColor: colors.bg, borderColor: colors.border }]} onPress={handleNextMonth} hitSlop={8}>
             <Ionicons name="chevron-forward" size={18} color={colors.text} />
           </Pressable>
         </View>
 
-        <View style={[s.card, s.summary]}>
-          <Text style={s.small}>Total Balance / Spent ({formattedMonthLabel})</Text>
-          <Text style={s.big}>{peso(totalSpent)}</Text>
+        <View style={[s.card, s.summary, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[s.small, { color: colors.muted }]}>Total Balance / Spent ({formattedMonthLabel})</Text>
+          <Text style={[s.big, { color: colors.text }]}>{peso(totalSpent)}</Text>
         </View>
 
-        <View style={s.searchBar}>
+        <View style={[s.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Ionicons name="search-outline" size={16} color={colors.muted} />
           <TextInput
             value={query}
             onChangeText={setQuery}
             placeholder="Search expenses or merchants"
             placeholderTextColor={colors.muted}
-            style={s.searchInput}
+            style={[s.searchInput, { color: colors.text }]}
           />
         </View>
 
@@ -254,16 +265,16 @@ export default function Expenses() {
         </ScrollView>
 
         {loading ? (
-          <View style={[s.card, { alignItems: 'center', paddingVertical: 28 }]}>
-            <Text style={s.body}>Loading expenses...</Text>
+          <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, alignItems: 'center', paddingVertical: 28 }]}>
+            <Text style={[s.body, { color: colors.text }]}>Loading expenses...</Text>
           </View>
         ) : filteredExpenses.length === 0 ? (
-          <View style={[s.card, { alignItems: 'center', paddingVertical: 28 }]}>
-            <Text style={s.body}>No expenses found</Text>
-            <Text style={s.small}>Try changing your filter or month selection.</Text>
+          <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, alignItems: 'center', paddingVertical: 28 }]}>
+            <Text style={[s.body, { color: colors.text }]}>No expenses found</Text>
+            <Text style={[s.small, { color: colors.muted }]}>Try changing your filter or month selection.</Text>
           </View>
         ) : (
-          <View style={[s.card, { padding: 0 }]}>
+          <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border, padding: 0 }]}>
             {filteredExpenses.map((expense, i) => {
               const cat = categoryMap.get(expense.categoryId);
               return (
@@ -281,8 +292,8 @@ export default function Expenses() {
 
         {/* Load More Button at the Bottom */}
         {canLoadMore && !loading && (
-          <Pressable style={s.loadMoreBtn} onPress={() => setVisibleUntilDay(lastDayOfSelectedMonth)}>
-            <Text style={s.loadMoreText}>Load earlier this month</Text>
+          <Pressable style={[s.loadMoreBtn, { borderColor: colors.teal, backgroundColor: 'rgba(22,186,197,0.1)' }]} onPress={() => setVisibleUntilDay(lastDayOfSelectedMonth)}>
+            <Text style={[s.loadMoreText, { color: colors.teal }]}>Load earlier this month</Text>
           </Pressable>
         )}
       </ScrollView>
@@ -298,16 +309,14 @@ export default function Expenses() {
 }
 
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
+  screen: { flex: 1 },
   content: { padding: 22, gap: 12, width: '100%', maxWidth: 760, alignSelf: 'center' },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title: { color: colors.text, fontFamily: fonts.medium, fontSize: 22 },
+  title: { fontFamily: fonts.medium, fontSize: 22 },
   gearBtn: {
     padding: 6,
     borderRadius: 8,
-    backgroundColor: colors.card,
-    borderColor: colors.border,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -316,57 +325,51 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.teal,
     borderRadius: 99,
     paddingVertical: 8,
     paddingHorizontal: 14,
   },
-  addBtnText: { color: colors.bg, fontFamily: fonts.medium, fontSize: 13 },
+  addBtnText: { fontFamily: fonts.medium, fontSize: 13 },
   monthSelectorCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 16,
+    borderWidth: 1,
+    borderRadius: 12,
   },
   monthNavBtn: {
     padding: 6,
     borderRadius: 8,
-    backgroundColor: colors.bg,
-    borderColor: colors.border,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   monthTitle: {
-    color: colors.text,
     fontFamily: fonts.medium,
     fontSize: 16,
   },
-  card: { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 14 },
+  card: { borderWidth: 1, borderRadius: 12, padding: 14 },
   summary: { alignItems: 'flex-start' },
-  big: { color: colors.text, fontFamily: fonts.medium, fontSize: 24, marginTop: 2 },
-  small: { color: colors.muted, fontFamily: fonts.regular, fontSize: 12 },
-  body: { color: colors.text, fontFamily: fonts.regular, fontSize: 14 },
+  big: { fontFamily: fonts.medium, fontSize: 24, marginTop: 2 },
+  small: { fontFamily: fonts.regular, fontSize: 12 },
+  body: { fontFamily: fonts.regular, fontSize: 14 },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 99,
     paddingHorizontal: 14,
     height: 40,
-    backgroundColor: colors.card,
   },
-  searchInput: { flex: 1, color: colors.text, fontFamily: fonts.regular, fontSize: 14 },
+  searchInput: { flex: 1, fontFamily: fonts.regular, fontSize: 14 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
-  rowDivider: { borderTopWidth: 1, borderTopColor: colors.border },
   icon: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: 'rgba(22,186,197,0.16)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -395,28 +398,23 @@ const s = StyleSheet.create({
     color: '#2ecc71',
   },
   pmChip: {
-    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 99,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    backgroundColor: colors.bg,
   },
-  pmChipText: { color: colors.muted, fontFamily: fonts.regular, fontSize: 11 },
-  amount: { color: colors.text, fontFamily: fonts.medium, fontSize: 14, minWidth: 70, textAlign: 'right' },
+  pmChipText: { fontFamily: fonts.regular, fontSize: 11 },
+  amount: { fontFamily: fonts.medium, fontSize: 14, minWidth: 70, textAlign: 'right' },
   loadMoreBtn: {
     alignSelf: 'center',
-    borderColor: colors.teal,
     borderWidth: 1,
     borderRadius: 99,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: 'rgba(22,186,197,0.1)',
     marginTop: 4,
     marginBottom: 20,
   },
   loadMoreText: {
-    color: colors.teal,
     fontFamily: fonts.medium,
     fontSize: 13,
   },
