@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 
 import { fonts } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
@@ -25,6 +27,7 @@ export default function Home() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isSpentVisible, setIsSpentVisible] = useState<boolean>(false); // State for toggling visibility
 
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
@@ -49,8 +52,22 @@ export default function Home() {
     setLoading(false);
   };
 
+  // Authentication check & Data loading on mount
   useEffect(() => {
-    loadData();
+    const checkAuthAndLoad = async () => {
+      try {
+        const userSession = await AsyncStorage.getItem('user');
+        if (!userSession) {
+          router.replace('/login');
+          return;
+        }
+        loadData();
+      } catch (error) {
+        console.error('Failed to check user session:', error);
+        router.replace('/login');
+      }
+    };
+    checkAuthAndLoad();
   }, []);
 
   const monthKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
@@ -113,8 +130,15 @@ export default function Home() {
 
       <View style={s.row}>
         <View style={[s.card, s.stat, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[s.label, { color: colors.muted }]}>Spent this month</Text>
-          <Text style={[s.big, { color: colors.text }]}>{peso(spent)}</Text>
+          <View style={s.cardHeaderRow}>
+            <Text style={[s.label, { color: colors.muted }]}>Spent this month</Text>
+            <Pressable onPress={() => setIsSpentVisible(!isSpentVisible)} hitSlop={8}>
+              <Ionicons name={isSpentVisible ? "eye-outline" : "eye-off-outline"} size={16} color={colors.muted} />
+            </Pressable>
+          </View>
+          <Text style={[s.big, { color: colors.text }]}>
+            {isSpentVisible ? peso(spent) : '••••••••'}
+          </Text>
           <Text style={[s.small, { color: colors.muted }]}>Live from PostgreSQL</Text>
         </View>
 
@@ -236,6 +260,7 @@ const s = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
   },
+  cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   stat: { flexGrow: 1, flexBasis: 150 },
   half: { flexGrow: 1, flexBasis: 280 },
   label: { fontFamily: fonts.regular, fontSize: 12 },

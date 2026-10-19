@@ -16,6 +16,7 @@ import {
 import { fonts } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import { API_BASE_URL } from '../constants/config';
+import { getAuthHeaders } from '../services/api'; // Import getAuthHeaders
 
 type InventoryCategory = {
   id: string;
@@ -66,7 +67,8 @@ export default function InventoryCategoriesScreen() {
   const loadCategories = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/inventory-categories`);
+      const headers = await getAuthHeaders(); // Get auth headers
+      const res = await fetch(`${API_BASE_URL}/inventory-categories`, { headers }); // Pass headers
       if (res.ok) {
         const data = await res.json();
         setCategories(data);
@@ -110,6 +112,7 @@ export default function InventoryCategoriesScreen() {
     if (!categoryName.trim()) return;
 
     try {
+      const headers = await getAuthHeaders(); // Get auth headers
       const url = editingCategory
         ? `${API_BASE_URL}/inventory-categories/${editingCategory.id}`
         : `${API_BASE_URL}/inventory-categories`;
@@ -118,7 +121,7 @@ export default function InventoryCategoriesScreen() {
 
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers, // Pass headers here
         body: JSON.stringify({
           name: categoryName.trim(),
           icon: selectedIcon,

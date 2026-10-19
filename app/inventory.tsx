@@ -7,7 +7,7 @@ import { Chip } from '../components/Chip';
 import { ItemModal, type ItemValues } from '../components/ItemModal';
 import { fonts } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
-import { fetchInventory, InventoryItem as ApiInventoryItem } from '../services/api';
+import { fetchInventory, getAuthHeaders, InventoryItem as ApiInventoryItem } from '../services/api';
 import { API_BASE_URL } from '../constants/config';
 import { fromISO } from '../lib/date';
 
@@ -54,7 +54,8 @@ function ItemRow({
 }) {
   const { colors } = useTheme();
   const iconName = (categoryObj?.icon as IconName) || 'pricetag-outline';
-  const status = item.status === 'out' ? 'Out' : item.status === 'low' ? 'Low' : item.status === 'For Disposal' ? 'Disposal' : null;
+  const itemStatusLower = (item.status || '').toLowerCase();
+  const status = itemStatusLower === 'out' ? 'Out' : itemStatusLower === 'low' ? 'Low' : itemStatusLower === 'for disposal' ? 'Disposal' : null;
 
   return (
     <Pressable onPress={onPress} style={[s.row, !first && { borderTopWidth: 1, borderTopColor: colors.border }]}>
@@ -69,8 +70,8 @@ function ItemRow({
         </Text>
       </View>
       {status && (
-        <View style={[s.status, { borderColor: colors.sapphire }, item.status === 'For Disposal' && { borderColor: colors.teal }]}>
-          <Text style={[s.statusText, { color: colors.sapphireText }, item.status === 'For Disposal' && { color: colors.teal }]}>{status}</Text>
+        <View style={[s.status, { borderColor: colors.sapphire }, itemStatusLower === 'for disposal' && { borderColor: colors.teal }]}>
+          <Text style={[s.statusText, { color: colors.sapphireText }, itemStatusLower === 'for disposal' && { color: colors.teal }]}>{status}</Text>
         </View>
       )}
       <View style={s.stepper}>
@@ -101,15 +102,18 @@ export default function Inventory() {
   const loadData = async () => {
     setLoading(true);
     try {
+      const headers = await getAuthHeaders();
       const [invData, catRes] = await Promise.all([
         fetchInventory(),
-        fetch(`${API_BASE_URL}/inventory-categories`),
+        fetch(`${API_BASE_URL}/inventory-categories`, { headers }),
       ]);
       const catData = await catRes.json();
-      setInventory(invData);
-      setCategories(catData);
+      setInventory(Array.isArray(invData) ? invData : []);
+      setCategories(Array.isArray(catData) ? catData : []);
     } catch (err) {
       console.error('Failed to load inventory data:', err);
+      setInventory([]);
+      setCategories([]);
     }
     setLoading(false);
   };
@@ -118,25 +122,32 @@ export default function Inventory() {
     loadData();
   }, []);
 
-  const toSort = inventory.filter((i) => i.category === null && i.status !== 'Disposed').length;
-  const low = inventory.filter((i) => (i.status === 'low' || i.status === 'out') && i.status !== 'Disposed').length;
+  const safeCategories = Array.isArray(categories) ? categories : [];
+  const safeInventory = Array.isArray(inventory) ? inventory : [];
+
+  const toSort = safeInventory.filter((i) => i.category === null && (i.status || 'Active').toLowerCase() !== 'disposed').length;
+  const low = safeInventory.filter((i) => {
+    const st = (i.status || '').toLowerCase();
+    return (st === 'low' || st === 'out') && st !== 'disposed';
+  }).length;
 
   const categoryMap = useMemo(() => {
-    return new Map(categories.map((c) => [c.name, c]));
-  }, [categories]);
+    return new Map(safeCategories.map((c) => [c.name, c]));
+  }, [safeCategories]);
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const visible = inventory.filter((i) => {
-      if (statusFilter === 'Active' && (i.status === 'Disposed' || i.status === 'For Disposal')) return false;
-      if (statusFilter === 'For Disposal' && i.status !== 'For Disposal') return false;
-      if (statusFilter === 'Disposed' && i.status !== 'Disposed') return false;
+    const visible = safeInventory.filter((i) => {
+      const itemStatus = (i.status || 'Active').toLowerCase();
+      if (statusFilter === 'Active' && (itemStatus === 'disposed' || itemStatus === 'for disposal')) return false;
+      if (statusFilter === 'For Disposal' && itemStatus !== 'for disposal') return false;
+      if (statusFilter === 'Disposed' && itemStatus !== 'disposed') return false;
 
       const inFilter = filter === 'All' || (filter === 'To sort' ? i.category === null : i.category === filter);
       return inFilter && (!q || i.name.toLowerCase().includes(q));
     });
 
-    const categoryNames = categories.map((c) => c.name);
+    const categoryNames = safeCategories.map((c) => c.name);
     const order: (string | null)[] = [null, ...categoryNames];
     return order
       .map((key) => ({
@@ -144,7 +155,7 @@ export default function Inventory() {
         items: visible.filter((i) => i.category === key).sort((a, b) => a.name.localeCompare(b.name)),
       }))
       .filter((g) => g.items.length > 0);
-  }, [inventory, categories, filter, statusFilter, query]);
+  }, [safeInventory, safeCategories, filter, statusFilter, query]);
 
   const closeModal = () => setModal((m) => ({ ...m, open: false }));
 
@@ -186,7 +197,7 @@ export default function Inventory() {
     closeModal();
   };
 
-  const filterOptions = ['All', 'To sort', ...categories.map((c) => c.name)];
+  const filterOptions = ['All', 'To sort', ...safeCategories.map((c) => c.name)];
 
   return (
     <View style={[s.screen, { backgroundColor: colors.bg }]}>
@@ -210,7 +221,7 @@ export default function Inventory() {
         </View>
 
         <View style={[s.card, s.summary, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Stat label="Items" value={inventory.filter(i => i.status !== 'Disposed').length} />
+          <Stat label="Items" value={safeInventory.filter(i => (i.status || 'Active').toLowerCase() !== 'disposed').length} />
           <View style={[s.vr, { backgroundColor: colors.border }]} />
           <Stat label="Running low" value={low} color={low > 0 ? colors.sapphireText : undefined} />
           <View style={[s.vr, { backgroundColor: colors.border }]} />
