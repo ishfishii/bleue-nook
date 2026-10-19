@@ -26,11 +26,13 @@ function ExpenseRow({
   expense,
   first,
   categoryIcon,
+  isMasked,
   onPress,
 }: {
   expense: ApiExpense;
   first: boolean;
   categoryIcon?: string;
+  isMasked: boolean;
   onPress: () => void;
 }) {
   const { colors } = useTheme();
@@ -68,7 +70,7 @@ function ExpenseRow({
       </View>
 
       <Text style={[s.amount, { color: colors.text }, isIncome && { color: '#2ecc71' }]}>
-        {isIncome ? `+${peso(Math.abs(expense.totalAmount))}` : peso(expense.totalAmount)}
+        {isMasked ? '₱••••' : (isIncome ? `+${peso(Math.abs(expense.totalAmount))}` : peso(expense.totalAmount))}
       </Text>
     </Pressable>
   );
@@ -83,6 +85,7 @@ export default function Expenses() {
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [query, setQuery] = useState('');
+  const [isMasked, setIsMasked] = useState<boolean>(false);
 
   // Modal State
   const [modal, setModal] = useState<{ open: boolean; expense?: ApiExpense }>({ open: false });
@@ -238,8 +241,19 @@ export default function Expenses() {
         </View>
 
         <View style={[s.card, s.summary, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[s.small, { color: colors.muted }]}>Total Balance / Spent ({formattedMonthLabel})</Text>
-          <Text style={[s.big, { color: colors.text }]}>{peso(totalSpent)}</Text>
+          <View style={s.summaryHeader}>
+            <Text style={[s.small, { color: colors.muted }]}>Total Balance / Spent ({formattedMonthLabel})</Text>
+            <Pressable onPress={() => setIsMasked(!isMasked)} hitSlop={8}>
+              <Ionicons 
+                name={isMasked ? 'eye-off-outline' : 'eye-outline'} 
+                size={18} 
+                color={colors.muted} 
+              />
+            </Pressable>
+          </View>
+          <Text style={[s.big, { color: colors.text }]}>
+            {isMasked ? '₱••••' : peso(totalSpent)}
+          </Text>
         </View>
 
         <View style={[s.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -283,6 +297,7 @@ export default function Expenses() {
                   expense={expense}
                   first={i === 0}
                   categoryIcon={cat?.icon}
+                  isMasked={isMasked}
                   onPress={() => setModal({ open: true, expense })}
                 />
               );
@@ -352,6 +367,7 @@ const s = StyleSheet.create({
   },
   card: { borderWidth: 1, borderRadius: 12, padding: 14 },
   summary: { alignItems: 'flex-start' },
+  summaryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
   big: { fontFamily: fonts.medium, fontSize: 24, marginTop: 2 },
   small: { fontFamily: fonts.regular, fontSize: 12 },
   body: { fontFamily: fonts.regular, fontSize: 14 },
