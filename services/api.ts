@@ -242,7 +242,6 @@ export const api = {
       const headers = await getAuthHeaders();
       const res = await fetch(`${API_BASE_URL}/nutrition/profile`, { headers });
       
-      // Return null if profile doesn't exist yet (404) or unauthenticated (401)
       if (res.status === 404 || res.status === 401) return null;
       
       if (!res.ok) {
@@ -285,7 +284,60 @@ export const api = {
     try {
       const headers = await getAuthHeaders();
       const res = await fetch(`${API_BASE_URL}/nutrition/log?date=${date}`, { headers });
-      if (!res.ok) throw new Error('Failed to fetch daily log');
+      
+      if (!res.ok) {
+        console.warn('Could not fetch daily log, returning empty default');
+        return { dailyLog: { id: null, log_date: date }, meals: [] };
+      }
+      
+      return await res.json();
+    } catch (error) {
+      console.error('API Error in getDailyLog:', error);
+      return { dailyLog: { id: null, log_date: date }, meals: [] };
+    }
+  },
+
+  // AI Meal Recommendation Suggestion
+  suggestMeal: async (payload: { 
+    mealType: string; 
+    remainingCalories: number; 
+    remainingProtein: number; 
+    remainingCarbs: number; 
+    remainingFat: number 
+  }) => {
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_BASE_URL}/nutrition/suggest`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error('Failed to fetch AI meal suggestion');
+      return await res.json();
+    } catch (error) {
+      console.error('API Error:', error);
+      return null;
+    }
+  },
+
+  logMealItem: async (mealData: {
+    date: string;
+    mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+    foodName: string;
+    calories: number;
+    proteinG: number;
+    carbsG: number;
+    fatG: number;
+    servings: number;
+  }) => {
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_BASE_URL}/nutrition/log/item`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(mealData),
+      });
+      if (!res.ok) throw new Error('Failed to log meal item');
       return await res.json();
     } catch (error) {
       console.error('API Error:', error);
@@ -334,7 +386,7 @@ export const api = {
     }
   },
 
-  // 3. FOOD SEARCH (Open Food Facts / Custom Database)
+  // 3. FOOD SEARCH
   searchFood: async (query: string) => {
     if (!query.trim()) return [];
     try {
