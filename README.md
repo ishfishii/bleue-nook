@@ -1,9 +1,18 @@
+# Bleue Nook App
+
+Bleue Nook is a mobile home management and personal health tracking app built with React Native (Expo) and an Express PostgreSQL backend.
+
+---
+
 ## 📱 Local Development & Testing
 
 ### 1. Start the Local Development Server
 To start the Expo Metro bundler and run your front end locally:
 ```powershell
 npx expo start
+```
+
+---
 
 ## 📱 Over-The-Air (OTA) Updates & Building
 
@@ -18,3 +27,4 @@ To push JavaScript/UI changes to installed devices without rebuilding the `.apk`
 
 ```powershell
 npx eas-cli update --channel preview --message "Describe your changes here"
+```
