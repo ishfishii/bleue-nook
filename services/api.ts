@@ -79,6 +79,10 @@ export const checkServerHealth = async (): Promise<{ ok: boolean } | null> => {
   }
 };
 
+// ==========================================
+// EXPENSE API SERVICES
+// ==========================================
+
 export const fetchExpenses = async (): Promise<Expense[]> => {
   try {
     const headers = await getAuthHeaders();
@@ -136,6 +140,25 @@ export const updateExpense = async (
   }
 };
 
+export const deleteExpense = async (id: string): Promise<boolean> => {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE_URL}/expenses/${id}`, {
+      method: 'DELETE',
+      headers,
+    });
+    if (!res.ok) throw new Error('Failed to delete expense');
+    return true;
+  } catch (error) {
+    console.error('API Error:', error);
+    return false;
+  }
+};
+
+// ==========================================
+// INVENTORY API SERVICES
+// ==========================================
+
 export const fetchInventory = async (): Promise<InventoryItem[]> => {
   try {
     const headers = await getAuthHeaders();
@@ -145,6 +168,43 @@ export const fetchInventory = async (): Promise<InventoryItem[]> => {
   } catch (error) {
     console.error('API Error:', error);
     return [];
+  }
+};
+
+export const createInventoryItem = async (values: any) => {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE_URL}/inventory`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(values),
+  });
+  if (!res.ok) throw new Error('Failed to create inventory item');
+  return res.json();
+};
+
+export const updateInventoryItem = async (id: string, values: any) => {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE_URL}/inventory/${id}`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(values),
+  });
+  if (!res.ok) throw new Error('Failed to update inventory item');
+  return res.json();
+};
+
+export const deleteInventoryItem = async (id: string): Promise<boolean> => {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE_URL}/inventory/${id}`, {
+      method: 'DELETE',
+      headers,
+    });
+    if (!res.ok) throw new Error('Failed to delete inventory item');
+    return true;
+  } catch (error) {
+    console.error('API Error:', error);
+    return false;
   }
 };
 
@@ -369,6 +429,29 @@ export const api = {
       console.error('API Error:', error);
       return null;
     }
+  },
+
+  updateMealItem: async (mealItemId: string, mealData: {
+      foodName: string;
+      servings: number;
+      calories: number;
+      proteinG: number;
+      carbsG: number;
+      fatG: number;
+    }) => {
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch(`${API_BASE_URL}/nutrition/meal/${mealItemId}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(mealData),
+        });
+        if (!res.ok) throw new Error('Failed to update meal');
+        return await res.json();
+      } catch (error) {
+        console.error('API Error:', error);
+        return null;
+      }
   },
 
   deleteMealItem: async (mealItemId: string) => {

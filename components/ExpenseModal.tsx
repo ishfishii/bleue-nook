@@ -38,9 +38,10 @@ type Props = {
     date: string;
     items: { name: string; quantity: number; unitPrice: number }[];
   }) => void;
+  onDelete?: (id: string) => void; // <-- Added onDelete prop
 };
 
-export function ExpenseModal({ visible, expense, onClose, onSave }: Props) {
+export function ExpenseModal({ visible, expense, onClose, onSave, onDelete }: Props) {
   const { colors } = useTheme();
   const editing = !!expense;
 
@@ -176,9 +177,18 @@ export function ExpenseModal({ visible, expense, onClose, onSave }: Props) {
         <View style={[s.dialog, { backgroundColor: colors.sidebar, borderColor: colors.border }]}>
           <View style={s.header}>
             <Text style={[s.title, { color: colors.text }]}>{editing ? 'Edit expense' : 'New database expense'}</Text>
-            <Pressable hitSlop={10} onPress={onClose}>
-              <Ionicons name="close" size={22} color={colors.muted} />
-            </Pressable>
+            
+            {/* Delete & Close buttons */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              {editing && onDelete && expense?.id && (
+                <Pressable hitSlop={10} onPress={() => onDelete(expense.id)}>
+                  <Ionicons name="trash-outline" size={20} color="#ff6b6b" />
+                </Pressable>
+              )}
+              <Pressable hitSlop={10} onPress={onClose}>
+                <Ionicons name="close" size={22} color={colors.muted} />
+              </Pressable>
+            </View>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>

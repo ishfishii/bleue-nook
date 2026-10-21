@@ -35,11 +35,11 @@ type Props = {
   item?: any;
   onClose: () => void;
   onSave: (values: ItemValues) => void;
+  onDelete?: (id: string) => void; // <-- Added onDelete prop
 };
 
 const INVENTORY_CATEGORIES = ['Food', 'Beauty & Grooming', 'Cleaning supplies', 'Electronics', 'Others'];
 
-// Helper to correctly parse dates in GMT+8 to prevent timezone shifting
 function getGMT8DateString(isoString: string): string {
   if (!isoString) return '';
   const date = new Date(isoString);
@@ -47,7 +47,6 @@ function getGMT8DateString(isoString: string): string {
   return gmt8Date.toISOString().split('T')[0];
 }
 
-// Helper to calculate expiration date based on date opened + storage duration
 function computeExpiry(opened: string, y?: number, m?: number, d?: number) {
   if (!opened) return '';
   const date = new Date(opened);
@@ -58,19 +57,18 @@ function computeExpiry(opened: string, y?: number, m?: number, d?: number) {
   return date.toISOString().split('T')[0];
 }
 
-export function ItemModal({ visible, item, onClose, onSave }: Props) {
+export function ItemModal({ visible, item, onClose, onSave, onDelete }: Props) {
   const { colors } = useTheme();
+  const editing = !!item;
 
   const [name, setName] = useState('');
   const [category, setCategory] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [status, setStatus] = useState<string>('Active');
 
-  // New fields
   const [location, setLocation] = useState('');
   const [isEssential, setIsEssential] = useState(false);
 
-  // Expiration fields
   const [hasExpiry, setHasExpiry] = useState(false);
   const [dateOpened, setDateOpened] = useState('');
   const [storageYears, setStorageYears] = useState('');
@@ -79,28 +77,43 @@ export function ItemModal({ visible, item, onClose, onSave }: Props) {
   const [expirationDate, setExpirationDate] = useState('');
 
   useEffect(() => {
-    if (!visible || !item) return;
-    setName(item.name || '');
-    setCategory(item.category || null);
-    setQuantity(item.quantity ?? 1);
-    setStatus(item.status || 'Active');
-    setLocation(item.storageLocation || item.location || '');
-    setIsEssential(item.isEssential ?? false);
+    if (!visible) return;
+    if (item) {
+      setName(item.name || '');
+      setCategory(item.category || null);
+      setQuantity(item.quantity ?? 1);
+      setStatus(item.status || 'Active');
+      setLocation(item.storageLocation || item.location || '');
+      setIsEssential(item.isEssential ?? false);
 
-    const exp = item.expirationDate ? getGMT8DateString(item.expirationDate) : '';
-    const opened = item.dateOpened ? getGMT8DateString(item.dateOpened) : '';
-    const y = item.storageYears !== null && item.storageYears !== undefined ? String(item.storageYears) : '';
-    const m = item.storageMonths !== null && item.storageMonths !== undefined ? String(item.storageMonths) : '';
-    const d = item.storageDays !== null && item.storageDays !== undefined ? String(item.storageDays) : '';
+      const exp = item.expirationDate ? getGMT8DateString(item.expirationDate) : '';
+      const opened = item.dateOpened ? getGMT8DateString(item.dateOpened) : '';
+      const y = item.storageYears !== null && item.storageYears !== undefined ? String(item.storageYears) : '';
+      const m = item.storageMonths !== null && item.storageMonths !== undefined ? String(item.storageMonths) : '';
+      const d = item.storageDays !== null && item.storageDays !== undefined ? String(item.storageDays) : '';
 
-    if (exp || opened || y || m || d) {
-      setHasExpiry(true);
-      setExpirationDate(exp);
-      setDateOpened(opened);
-      setStorageYears(y);
-      setStorageMonths(m);
-      setStorageDays(d);
+      if (exp || opened || y || m || d) {
+        setHasExpiry(true);
+        setExpirationDate(exp);
+        setDateOpened(opened);
+        setStorageYears(y);
+        setStorageMonths(m);
+        setStorageDays(d);
+      } else {
+        setHasExpiry(false);
+        setExpirationDate('');
+        setDateOpened('');
+        setStorageYears('');
+        setStorageMonths('');
+        setStorageDays('');
+      }
     } else {
+      setName('');
+      setCategory(null);
+      setQuantity(1);
+      setStatus('Active');
+      setLocation('');
+      setIsEssential(false);
       setHasExpiry(false);
       setExpirationDate('');
       setDateOpened('');
@@ -110,7 +123,6 @@ export function ItemModal({ visible, item, onClose, onSave }: Props) {
     }
   }, [visible, item]);
 
-  // Auto-calculate expiration date when opened date or storage inputs change
   const handleStorageChange = (opened: string, y: string, m: string, d: string) => {
     setDateOpened(opened);
     setStorageYears(y);
@@ -137,8 +149,7 @@ export function ItemModal({ visible, item, onClose, onSave }: Props) {
       storageDays: hasExpiry && storageDays ? parseInt(storageDays, 10) : null,
       expirationDate: hasExpiry && expirationDate ? expirationDate : null,
       isEssential,
-      location: location.trim() || null,
-      storageLocation: location.trim() || null,
+      storageLocation: location.trim() || null, // <-- Changed from location to storageLocation
     });
   };
 
@@ -150,16 +161,26 @@ export function ItemModal({ visible, item, onClose, onSave }: Props) {
         <View style={[s.dialog, { backgroundColor: colors.sidebar, borderColor: colors.border }]}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 10 }}>
             <View style={s.header}>
-              <Text style={[s.title, { color: colors.text }]}>Edit item</Text>
-              <Pressable hitSlop={10} onPress={onClose}>
-                <Ionicons name="close" size={22} color={colors.muted} />
-              </Pressable>
+              <Text style={[s.title, { color: colors.text }]}>{editing ? 'Edit item' : 'New inventory item'}</Text>
+              
+              {/* Delete & Close buttons */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                {editing && onDelete && item?.id && (
+                  <Pressable hitSlop={10} onPress={() => onDelete(item.id)}>
+                    <Ionicons name="trash-outline" size={20} color="#ff6b6b" />
+                  </Pressable>
+                )}
+                <Pressable hitSlop={10} onPress={onClose}>
+                  <Ionicons name="close" size={22} color={colors.muted} />
+                </Pressable>
+              </View>
             </View>
 
             <Text style={[s.label, { color: colors.muted }]}>Name</Text>
             <TextInput
               value={name}
               onChangeText={setName}
+              placeholder="e.g. Olive Oil"
               placeholderTextColor={colors.muted}
               style={[s.input, { color: colors.text, backgroundColor: colors.card, borderColor: colors.border }]}
             />
@@ -199,7 +220,6 @@ export function ItemModal({ visible, item, onClose, onSave }: Props) {
               </Pressable>
             </View>
 
-            {/* Checkbox for Is Essential? */}
             <Pressable style={s.checkboxRow} onPress={() => setIsEssential(!isEssential)}>
               <View style={[s.checkbox, { backgroundColor: colors.card, borderColor: colors.border }, isEssential && { backgroundColor: colors.teal, borderColor: colors.teal }]}>
                 {isEssential && <Ionicons name="checkmark" size={12} color={colors.bg} />}
@@ -207,7 +227,6 @@ export function ItemModal({ visible, item, onClose, onSave }: Props) {
               <Text style={[s.body, { color: colors.text }]}>Is Essential?</Text>
             </Pressable>
 
-            {/* Checkbox for Expires? */}
             <Pressable style={s.checkboxRow} onPress={() => setHasExpiry(!hasExpiry)}>
               <View style={[s.checkbox, { backgroundColor: colors.card, borderColor: colors.border }, hasExpiry && { backgroundColor: colors.teal, borderColor: colors.teal }]}>
                 {hasExpiry && <Ionicons name="checkmark" size={12} color={colors.bg} />}
@@ -293,7 +312,7 @@ const s = StyleSheet.create({
     maxWidth: 440,
     maxHeight: '90%',
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 20, // Rounder styling matching expenses
     padding: 20,
   },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
@@ -305,15 +324,11 @@ const s = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: 15,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12, // Rounder inputs
     paddingHorizontal: 12,
     height: 44,
   },
-  storageRow: {
-    flexDirection: 'row',
-    gap: 8,
-    width: '100%',
-  },
+  storageRow: { flexDirection: 'row', gap: 8, width: '100%' },
   storageInput: {
     flex: 1,
     minWidth: 0,
@@ -321,7 +336,7 @@ const s = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     height: 44,
     paddingHorizontal: 4,
   },
@@ -340,14 +355,14 @@ const s = StyleSheet.create({
   checkbox: {
     width: 20,
     height: 20,
-    borderRadius: 4,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   expiryContainer: {
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 12,
     marginTop: 6,
     gap: 4,

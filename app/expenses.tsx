@@ -7,7 +7,7 @@ import { Chip } from '../components/Chip';
 import { ExpenseModal } from '../components/ExpenseModal';
 import { fonts } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
-import { fetchExpenses, fetchCategories, fetchMerchants, createExpense, updateExpense, Expense as ApiExpense, Category, Merchant } from '../services/api';
+import { fetchExpenses, fetchCategories, fetchMerchants, createExpense, updateExpense, deleteExpense, Expense as ApiExpense, Category, Merchant } from '../services/api';
 import { API_BASE_URL } from '../constants/config';
 import { fromISO } from '../lib/date';
 
@@ -206,6 +206,12 @@ export default function Expenses() {
     loadData();
   };
 
+  const handleDeleteExpense = async (id: string) => {
+    await deleteExpense(id);
+    setModal({ open: false });
+    loadData();
+  };
+
   const filterOptions = ['All', ...categories.map((c) => c.name)];
 
   return (
@@ -318,6 +324,7 @@ export default function Expenses() {
         expense={modal.expense}
         onClose={() => setModal({ open: false })}
         onSave={handleSaveModal}
+        onDelete={handleDeleteExpense}
       />
     </View>
   );

@@ -7,7 +7,14 @@ import { Chip } from '../components/Chip';
 import { ItemModal, type ItemValues } from '../components/ItemModal';
 import { fonts } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
-import { fetchInventory, getAuthHeaders, InventoryItem as ApiInventoryItem } from '../services/api';
+import { 
+  fetchInventory, 
+  getAuthHeaders, 
+  deleteInventoryItem, 
+  createInventoryItem, 
+  updateInventoryItem, 
+  InventoryItem as ApiInventoryItem 
+} from '../services/api';
 import { API_BASE_URL } from '../constants/config';
 import { fromISO } from '../lib/date';
 
@@ -20,7 +27,6 @@ type InventoryCategory = {
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 type StatusFilter = 'Active' | 'For Disposal' | 'Disposed';
 
-// Helper for GMT+8 date formatting
 const shortDate = (iso: string) => {
   if (!iso) return '';
   const date = new Date(iso);
@@ -176,25 +182,22 @@ export default function Inventory() {
 
   const handleSaveModal = async (values: ItemValues) => {
     try {
-      const url = modal.item?.id 
-        ? `${API_BASE_URL}/inventory/${modal.item.id}` 
-        : `${API_BASE_URL}/inventory`;
-      
-      const method = modal.item?.id ? 'PATCH' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      });
-
-      if (res.ok) {
-        loadData();
+      if (modal.item?.id) {
+        await updateInventoryItem(modal.item.id, values);
+      } else {
+        await createInventoryItem(values);
       }
+      loadData();
     } catch (err) {
       console.error('Failed to save item:', err);
     }
     closeModal();
+  };
+
+  const handleDeleteItem = async (id: string) => {
+    await deleteInventoryItem(id);
+    closeModal();
+    loadData();
   };
 
   const filterOptions = ['All', 'To sort', ...safeCategories.map((c) => c.name)];
@@ -323,7 +326,7 @@ export default function Inventory() {
         )}
       </ScrollView>
 
-      <ItemModal visible={modal.open} item={modal.item} onClose={closeModal} onSave={handleSaveModal} />
+      <ItemModal visible={modal.open} item={modal.item} onClose={closeModal} onSave={handleSaveModal} onDelete={handleDeleteItem} />
     </View>
   );
 }
@@ -350,7 +353,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
   },
   addBtnText: { fontFamily: fonts.medium, fontSize: 13 },
-  card: { borderWidth: 1, borderRadius: 12, padding: 14 },
+  card: { borderWidth: 1, borderRadius: 16, padding: 14 }, // Rounder cards
   summary: { flexDirection: 'row', alignItems: 'center' },
   stat: { flex: 1, alignItems: 'center' },
   vr: { width: 1, alignSelf: 'stretch' },
@@ -383,7 +386,7 @@ const s = StyleSheet.create({
     right: 0,
     width: 140,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     overflow: 'hidden',
     zIndex: 999,
     elevation: 10,
