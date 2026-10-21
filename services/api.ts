@@ -221,3 +221,144 @@ export const createMerchant = async (name: string, type: string = 'Online'): Pro
     return null;
   }
 };
+
+// ==========================================
+// NUTRITION & USER PROFILE API SERVICES
+// ==========================================
+
+export interface UserProfileData {
+  age: number;
+  gender: 'male' | 'female';
+  heightCm: number;
+  weightKg: number;
+  activityLevel: 'sedentary' | 'light' | 'moderate' | 'active';
+  primaryGoal: 'lose' | 'maintain' | 'gain';
+}
+
+export const api = {
+  // 1. USER PROFILE & NUTRITION GOALS
+  getUserProfile: async () => {
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_BASE_URL}/nutrition/profile`, { headers });
+      
+      // Return null if profile doesn't exist yet (404) or unauthenticated (401)
+      if (res.status === 404 || res.status === 401) return null;
+      
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        console.warn('Backend returned error:', res.status, errBody);
+        return null;
+      }
+      
+      return await res.json();
+    } catch (error) {
+      console.error('API Error:', error);
+      return null;
+    }
+  },
+
+  updateUserProfile: async (profileData: UserProfileData) => {
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_BASE_URL}/nutrition/profile`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(profileData),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        console.error('Backend PUT Error:', res.status, errBody);
+        throw new Error(`Failed to update profile (${res.status})`);
+      }
+
+      return await res.json();
+    } catch (error) {
+      console.error('API Error:', error);
+      return null;
+    }
+  },
+
+  // 2. DAILY LOGS & MEALS
+  getDailyLog: async (date: string) => {
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_BASE_URL}/nutrition/log?date=${date}`, { headers });
+      if (!res.ok) throw new Error('Failed to fetch daily log');
+      return await res.json();
+    } catch (error) {
+      console.error('API Error:', error);
+      return null;
+    }
+  },
+
+  addMealItem: async (mealData: {
+    date: string;
+    mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+    foodId?: string;
+    foodName: string;
+    calories: number;
+    proteinG: number;
+    carbsG: number;
+    fatG: number;
+    servings: number;
+  }) => {
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_BASE_URL}/nutrition/meal`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(mealData),
+      });
+      if (!res.ok) throw new Error('Failed to log meal');
+      return await res.json();
+    } catch (error) {
+      console.error('API Error:', error);
+      return null;
+    }
+  },
+
+  deleteMealItem: async (mealItemId: string) => {
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_BASE_URL}/nutrition/meal/${mealItemId}`, {
+        method: 'DELETE',
+        headers,
+      });
+      if (!res.ok) throw new Error('Failed to delete meal');
+      return await res.json();
+    } catch (error) {
+      console.error('API Error:', error);
+      return null;
+    }
+  },
+
+  // 3. FOOD SEARCH (Open Food Facts / Custom Database)
+  searchFood: async (query: string) => {
+    if (!query.trim()) return [];
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_BASE_URL}/nutrition/search?q=${encodeURIComponent(query)}`, {
+        headers,
+      });
+      if (!res.ok) throw new Error('Food search failed');
+      return await res.json();
+    } catch (error) {
+      console.error('API Error:', error);
+      return [];
+    }
+  },
+
+  searchBarcode: async (barcode: string) => {
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_BASE_URL}/nutrition/barcode/${barcode}`, { headers });
+      if (!res.ok) throw new Error('Barcode lookup failed');
+      return await res.json();
+    } catch (error) {
+      console.error('API Error:', error);
+      return null;
+    }
+  },
+};

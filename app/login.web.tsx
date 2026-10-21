@@ -8,10 +8,9 @@ import { router } from 'expo-router';
 
 import { fonts } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
+import { API_BASE_URL } from '../constants/config';
 
 WebBrowser.maybeCompleteAuthSession();
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://100.79.201.46:3001';
 
 export default function LoginWeb() {
   const { colors } = useTheme();
@@ -20,6 +19,7 @@ export default function LoginWeb() {
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     redirectUri: AuthSession.makeRedirectUri({ path: 'login' }),
+    selectAccount: true,
   });
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function LoginWeb() {
       setBusy(true);
       setError(null);
       try {
-        const res = await fetch(`${API_URL}/api/auth/google`, {
+        const res = await fetch(`${API_BASE_URL}/auth/google`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: response.params.id_token }),

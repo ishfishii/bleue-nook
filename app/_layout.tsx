@@ -15,7 +15,7 @@ function CustomDrawerContent(props: any) {
   const { colors, mode, toggleTheme } = useTheme();
   const currentRouteName = props.state.routeNames[props.state.index];
   
-  // REQUIRED: State and effect to load the logged-in user from storage
+  // State and effect to load the logged-in user from storage
   const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
 
   useEffect(() => {
@@ -42,15 +42,17 @@ function CustomDrawerContent(props: any) {
     }
   };
 
+  // Main navigation items (Added Nutrition here)
   const menuItems = [
     { name: 'index', title: 'Home', icon: 'home-outline' },
     { name: 'expenses', title: 'Expenses', icon: 'wallet-outline' },
     { name: 'inventory', title: 'Inventory', icon: 'cube-outline' },
+    { name: 'nutrition', title: 'Nutrition', icon: 'nutrition-outline' },
   ];
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.sidebar, justifyContent: 'space-between' }}>
-      <View>
+      <View style={{ flex: 1 }}>
         {/* Top Brand Header & Theme Toggle */}
         <View style={[styles.headerContainer, { borderBottomColor: colors.border }]}>
           <Text style={[styles.brandTitle, { color: colors.text }]}>Bleue Nook</Text>
@@ -99,16 +101,25 @@ function CustomDrawerContent(props: any) {
         </ScrollView>
       </View>
 
-      {/* Bottom User Info & Logout Footer */}
+      {/* Bottom User Info Card & Logout Footer */}
       <View style={[styles.userFooter, { borderTopColor: colors.border }]}>
-        <View style={styles.userInfo}>
-          <Text style={[styles.userName, { color: colors.text, fontFamily: fonts.medium }]} numberOfLines={1}>
-            {user?.name || 'User Account'}
-          </Text>
-          <Text style={[styles.userEmail, { color: colors.muted }]} numberOfLines={1}>
-            {user?.email || 'Connected'}
-          </Text>
-        </View>
+        <Pressable 
+          style={[
+            styles.userInfoCard, 
+            currentRouteName === 'profile' && { backgroundColor: 'rgba(22,186,197,0.14)' }
+          ]} 
+          onPress={() => props.navigation.navigate('profile')}
+        >
+          <View style={styles.userInfo}>
+            <Text style={[styles.userName, { color: colors.text, fontFamily: fonts.medium }]} numberOfLines={1}>
+              {user?.name || 'User Account'}
+            </Text>
+            <Text style={[styles.userEmail, { color: colors.muted }]} numberOfLines={1}>
+              {user?.email || 'Connected'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward-outline" size={16} color={colors.muted} />
+        </Pressable>
 
         <Pressable 
           style={[styles.logoutButton, { backgroundColor: mode === 'dark' ? 'rgba(229,57,53,0.15)' : '#fdf2f2' }]} 
@@ -178,6 +189,10 @@ function DrawerNavigator() {
         <Drawer.Screen name="index" options={{ title: 'Home' }} />
         <Drawer.Screen name="expenses" options={{ title: 'Expenses' }} />
         <Drawer.Screen name="inventory" options={{ title: 'Inventory' }} />
+        <Drawer.Screen name="nutrition" options={{ title: 'Nutrition' }} />
+        
+        {/* Hidden Routes (Accessible via actions or profile click) */}
+        <Drawer.Screen name="profile" options={{ drawerItemStyle: { display: 'none' }, title: 'Profile & Goals' }} />
         <Drawer.Screen name="login" options={{ drawerItemStyle: { display: 'none' }, headerShown: false }} />
         <Drawer.Screen name="expense-settings" options={{ drawerItemStyle: { display: 'none' }, title: 'Expense Categories' }} />
         <Drawer.Screen name="inventory-categories" options={{ drawerItemStyle: { display: 'none' }, title: 'Inventory Categories' }} />
@@ -208,7 +223,7 @@ const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justify: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 20,
     marginBottom: 12,
@@ -242,8 +257,17 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     gap: 10,
   },
+  userInfoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 8,
+    borderRadius: 8,
+  },
   userInfo: {
+    flex: 1,
     gap: 2,
+    marginRight: 8,
   },
   userName: {
     fontSize: 13,
